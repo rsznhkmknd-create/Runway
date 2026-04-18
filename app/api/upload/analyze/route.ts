@@ -113,18 +113,22 @@ export async function POST(req: Request) {
   // Send up to 15 sample rows to Claude for analysis
   const sampleRows = parsed.rows.slice(0, 15)
 
+  // Debug: log parsed content before sending to Claude
+  const userPrompt = buildUserPrompt(parsed.columns, sampleRows)
+  console.log('[analyze] filename:', file.name, '| size:', file.size, 'bytes')
+  console.log('[analyze] columns:', parsed.columns)
+  console.log('[analyze] rows parsed:', parsed.rows.length)
+  console.log('[analyze] prompt first 500 chars:', userPrompt.slice(0, 500))
+  console.log('[analyze] ANTHROPIC_API_KEY present:', !!process.env.ANTHROPIC_API_KEY)
+  console.log('[analyze] ANTHROPIC_API_KEY prefix:', process.env.ANTHROPIC_API_KEY?.slice(0, 15))
+
   let mapping: ColumnMapping
   try {
     const response = await anthropic.messages.create({
       model: 'claude-opus-4-6',
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: buildUserPrompt(parsed.columns, sampleRows),
-        },
-      ],
+      messages: [{ role: 'user', content: userPrompt }],
     })
 
     const text = response.content
@@ -132,13 +136,20 @@ export async function POST(req: Request) {
       .map((b) => (b as { type: 'text'; text: string }).text)
       .join('')
 
+    console.log('[analyze] Claude raw response:', text.slice(0, 300))
+
     // Strip potential markdown fences
     const jsonStr = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim()
     mapping = JSON.parse(jsonStr) as ColumnMapping
+    console.log('[analyze] mapping parsed OK:', JSON.stringify(mapping))
   } catch (err) {
-    console.error('Claude analysis error:', err)
+    console.error('[analyze] Claude error full:', err)
+    const errMsg = err instanceof Error ? err.message : String(err)
     return NextResponse.json(
-      { error: 'No se pudo analizar el archivo automáticamente. Por favor verifica que contiene datos financieros.' },
+      {
+        error: 'No se pudo analizar el archivo automáticamente. Por favor verifica que contiene datos financieros.',
+        debug: { claudeError: errMsg },
+      },
       { status: 422 }
     )
   }

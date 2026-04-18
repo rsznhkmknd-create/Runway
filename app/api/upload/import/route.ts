@@ -30,11 +30,18 @@ export async function POST(req: Request) {
   // Look up user profile in Supabase
   const supabase = createServiceClient()
 
+  console.log('[import] userId:', userId)
+  console.log('[import] SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+  console.log('[import] SERVICE_KEY present:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+  console.log('[import] SERVICE_KEY prefix:', process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 20))
+
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('id')
     .eq('clerk_id', userId)
     .single()
+
+  console.log('[import] SELECT profile → data:', profile, '| error:', JSON.stringify(profileError))
 
   if (profileError || !profile) {
     // If no profile exists, auto-create one (for users who skipped webhook setup)
@@ -44,9 +51,18 @@ export async function POST(req: Request) {
       .select('id')
       .single()
 
+    console.log('[import] INSERT profile → data:', newProfile, '| error:', JSON.stringify(createError))
+
     if (createError || !newProfile) {
       return NextResponse.json(
-        { error: 'No se pudo encontrar o crear el perfil de usuario' },
+        {
+          error: 'No se pudo encontrar o crear el perfil de usuario',
+          debug: {
+            selectError: profileError,
+            insertError: createError,
+            userId,
+          },
+        },
         { status: 500 }
       )
     }

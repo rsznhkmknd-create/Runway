@@ -1,0 +1,20 @@
+Fecha Operación,Concepto,Debe (€),Haber (€),Categoría
+02/01/2026,Pago nóminas enero,18000,,Personal
+05/01/2026,Ingreso factura Acme Corp,,12500,Ventas
+10/01/2026,Alquiler oficina Madrid,2800,,Oficina
+12/01/2026,Google Workspace mensual,480,,SaaS
+15/01/2026,Cobro factura TechStart SL,,8200,Ventas
+18/01/2026,Suministros de oficina,240,,Gastos generales
+20/01/2026,AWS infraestructura,1240,,Tecnología
+22/01/2026,Ingreso proyecto Innovatech,,5800,Servicios
+25/01/2026,Asesoría legal,1500,,Legal
+28/01/2026,Seguridad Social enero,4200,,Personal
+31/01/2026,Comisiones Stripe,320,,Comisiones
+01/02/2026,Pago nóminas febrero,18000,,Personal
+03/02/2026,Cobro RetailPro España,,14400,Ventas
+08/02/2026,Electricidad y agua,320,,Suministros
+10/02/2026,Cobro proyecto FinGroup,,7600,Servicios
+15/02/2026,Software contabilidad,180,,SaaS
+18/02/2026,Cobro Distribuidora MX,,5000,Ventas
+20/02/2026,Publicidad Meta Ads,950,,Marketing
+25/02/2026,Seguridad Social febrero,4200,,Personal

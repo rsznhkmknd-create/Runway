@@ -9,15 +9,17 @@ import {
   ArrowLeftRight,
   Settings,
   ChevronRight,
+  Upload,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/burn-rate', label: 'Burn Rate', icon: TrendingDown },
-  { href: '/dashboard/facturas', label: 'Facturas', icon: FileText },
-  { href: '/dashboard/movimientos', label: 'Movimientos', icon: ArrowLeftRight },
-  { href: '/dashboard/ajustes', label: 'Ajustes', icon: Settings },
+  { href: '/dashboard',              label: 'Dashboard',   icon: LayoutDashboard },
+  { href: '/dashboard/burn-rate',    label: 'Burn Rate',   icon: TrendingDown },
+  { href: '/dashboard/facturas',     label: 'Facturas',    icon: FileText },
+  { href: '/dashboard/movimientos',  label: 'Movimientos', icon: ArrowLeftRight },
+  { href: '/dashboard/importar',     label: 'Importar',    icon: Upload },
+  { href: '/dashboard/ajustes',      label: 'Ajustes',     icon: Settings },
 ]
 
 export default function Sidebar() {

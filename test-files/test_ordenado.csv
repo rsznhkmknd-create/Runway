@@ -1,0 +1,21 @@
+Date,Description,Amount,Type,Category
+2026-01-02,Client payment - Acme Corp,12500,income,Sales
+2026-01-05,AWS hosting monthly,1240,expense,Technology
+2026-01-10,Office rent Madrid,2800,expense,Rent
+2026-01-12,Google Workspace Business,480,expense,SaaS
+2026-01-15,Client payment - TechStart SL,8200,income,Sales
+2026-01-18,Payroll January,18000,expense,Payroll
+2026-01-20,Stripe processing fees,320,expense,Commissions
+2026-01-22,Client payment - Innovatech,5800,income,Services
+2026-01-25,Fiber internet office,89,expense,Utilities
+2026-01-28,Legal advisor consultation,1500,expense,Legal
+2026-01-31,Social security contributions,4200,expense,Payroll
+2026-02-01,Client payment - RetailPro,14400,income,Sales
+2026-02-03,Office supplies,240,expense,Operations
+2026-02-05,AWS hosting monthly,1240,expense,Technology
+2026-02-08,Payroll February,18000,expense,Payroll
+2026-02-10,Client payment - FinGroup ES,7600,income,Services
+2026-02-15,Accounting software license,180,expense,SaaS
+2026-02-18,Client payment - Distribuidora MX,5000,income,Sales
+2026-02-20,Meta Ads campaign,950,expense,Marketing
+2026-02-25,Social security contributions,4200,expense,Payroll

@@ -14,10 +14,10 @@ import { cn } from '@/lib/utils'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/burn-rate', label: 'Burn Rate', icon: TrendingDown },
-  { href: '/invoices', label: 'Facturas', icon: FileText },
-  { href: '/transactions', label: 'Movimientos', icon: ArrowLeftRight },
-  { href: '/settings', label: 'Ajustes', icon: Settings },
+  { href: '/dashboard/burn-rate', label: 'Burn Rate', icon: TrendingDown },
+  { href: '/dashboard/facturas', label: 'Facturas', icon: FileText },
+  { href: '/dashboard/movimientos', label: 'Movimientos', icon: ArrowLeftRight },
+  { href: '/dashboard/ajustes', label: 'Ajustes', icon: Settings },
 ]
 
 export default function Sidebar() {

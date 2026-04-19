@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function AccountsReceivableCard({ total, overdue, count }: Props) {
-  const overduePercent = Math.round((overdue / total) * 100)
+  const overduePercent = total > 0 ? Math.round((overdue / total) * 100) : 0
   const onTimeAmount = total - overdue
 
   return (

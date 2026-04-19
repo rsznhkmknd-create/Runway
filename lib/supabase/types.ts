@@ -17,6 +17,13 @@ export interface Database {
           full_name: string | null
           company_name: string | null
           currency: string
+          // Onboarding
+          industry: string | null
+          country: string | null
+          employee_count: string | null
+          business_type: string | null
+          main_goal: string | null
+          onboarding_completed: boolean
           created_at: string
           updated_at: string
         }
@@ -27,6 +34,13 @@ export interface Database {
           full_name?: string | null
           company_name?: string | null
           currency?: string
+          // Onboarding
+          industry?: string | null
+          country?: string | null
+          employee_count?: string | null
+          business_type?: string | null
+          main_goal?: string | null
+          onboarding_completed?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -34,6 +48,13 @@ export interface Database {
           full_name?: string | null
           company_name?: string | null
           currency?: string
+          // Onboarding
+          industry?: string | null
+          country?: string | null
+          employee_count?: string | null
+          business_type?: string | null
+          main_goal?: string | null
+          onboarding_completed?: boolean
           updated_at?: string
         }
       }

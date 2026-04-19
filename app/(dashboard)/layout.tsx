@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { createServiceClient } from '@/lib/supabase/server'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 
@@ -10,8 +11,19 @@ export default async function DashboardLayout({
 }) {
   const { userId } = auth()
 
-  if (!userId) {
-    redirect('/sign-in')
+  if (!userId) redirect('/sign-in')
+
+  // Comprobar si el usuario completó el onboarding
+  const supabase = createServiceClient()
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('onboarding_completed')
+    .eq('clerk_id', userId)
+    .single()
+
+  // Sin perfil o sin onboarding completado → redirigir al wizard
+  if (!profile?.onboarding_completed) {
+    redirect('/onboarding')
   }
 
   return (

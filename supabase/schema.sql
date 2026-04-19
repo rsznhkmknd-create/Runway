@@ -7,14 +7,21 @@ create extension if not exists "uuid-ossp";
 
 -- ── Profiles ────────────────────────────────────────────────
 create table public.profiles (
-  id           uuid primary key default uuid_generate_v4(),
-  clerk_id     text unique not null,
-  email        text not null,
-  full_name    text,
-  company_name text,
-  currency     text not null default 'EUR',
-  created_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now()
+  id                    uuid primary key default uuid_generate_v4(),
+  clerk_id              text unique not null,
+  email                 text not null,
+  full_name             text,
+  company_name          text,
+  currency              text not null default 'EUR',
+  -- Onboarding fields
+  industry              text,
+  country               text,
+  employee_count        text,
+  business_type         text,
+  main_goal             text,
+  onboarding_completed  boolean not null default false,
+  created_at            timestamptz not null default now(),
+  updated_at            timestamptz not null default now()
 );
 
 alter table public.profiles enable row level security;

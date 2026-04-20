@@ -117,7 +117,7 @@ function calculateMetrics(
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function DashboardPage() {
-  const { userId } = auth()
+  const { userId } = await auth()
   const user = await currentUser()
 
   const supabase = createServiceClient()
@@ -172,29 +172,30 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Empty state banner */}
+      {/* Empty state — shown when there are no transactions yet */}
       {!metrics.hasData && (
-        <div className="flex items-center justify-between gap-4 bg-brand-50 border border-brand-100 rounded-2xl px-5 py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-brand-100 rounded-xl flex items-center justify-center shrink-0">
-              <Upload className="w-4 h-4 text-brand-600" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-brand-800">
-                Aún no tienes datos importados
-              </p>
-              <p className="text-xs text-brand-600/70 mt-0.5">
-                Las métricas se mostrarán en cero hasta que importes tus primeras transacciones.
-              </p>
-            </div>
+        <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/50 px-8 py-12 text-center">
+          <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-brand-100 flex items-center justify-center">
+            <Upload className="w-6 h-6 text-brand-600" />
           </div>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">
+            Tu runway empieza aquí
+          </h2>
+          <p className="text-sm text-gray-500 max-w-xs mx-auto leading-relaxed mb-6">
+            Importa tu primer archivo de transacciones y en segundos verás tu runway,
+            burn rate y flujo de caja al detalle.
+          </p>
           <Link
             href="/dashboard/importar"
-            className="shrink-0 flex items-center gap-1.5 px-4 py-2 bg-brand-600 text-white text-xs font-semibold rounded-xl hover:bg-brand-700 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-brand-600 text-white text-sm font-semibold
+                       rounded-xl hover:bg-brand-700 transition-colors shadow-sm shadow-brand-600/20"
           >
-            Importar datos
-            <Upload className="w-3.5 h-3.5" />
+            <Upload className="w-4 h-4" />
+            Importar mi primer archivo
           </Link>
+          <p className="text-xs text-gray-400 mt-4">
+            Compatible con Excel (.xlsx) y CSV · Tus datos son privados y seguros
+          </p>
         </div>
       )}
 

@@ -22,6 +22,7 @@ export interface Database {
           country: string | null
           employee_count: string | null
           business_type: string | null
+          website: string | null
           main_goal: string | null
           onboarding_completed: boolean
           created_at: string
@@ -39,6 +40,7 @@ export interface Database {
           country?: string | null
           employee_count?: string | null
           business_type?: string | null
+          website?: string | null
           main_goal?: string | null
           onboarding_completed?: boolean
           created_at?: string
@@ -53,10 +55,12 @@ export interface Database {
           country?: string | null
           employee_count?: string | null
           business_type?: string | null
+          website?: string | null
           main_goal?: string | null
           onboarding_completed?: boolean
           updated_at?: string
         }
+        Relationships: []
       }
       transactions: {
         Row: {
@@ -86,6 +90,14 @@ export interface Database {
           description?: string | null
           date?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'transactions_profile_id_fkey'
+            columns: ['profile_id']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
       }
       invoices: {
         Row: {
@@ -115,6 +127,14 @@ export interface Database {
           due_date?: string
           status?: 'pending' | 'paid' | 'overdue'
         }
+        Relationships: [
+          {
+            foreignKeyName: 'invoices_profile_id_fkey'
+            columns: ['profile_id']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
       }
     }
     Views: Record<string, never>

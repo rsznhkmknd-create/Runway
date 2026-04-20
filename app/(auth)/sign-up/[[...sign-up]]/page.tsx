@@ -14,6 +14,7 @@ export default function SignUpPage() {
           <p className="text-gray-500 text-sm">Crea tu cuenta — es gratis</p>
         </div>
         <SignUp
+          forceRedirectUrl="/onboarding"
           appearance={{
             elements: {
               rootBox: 'w-full',

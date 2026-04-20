@@ -18,6 +18,7 @@ create table public.profiles (
   country               text,
   employee_count        text,
   business_type         text,
+  website               text,
   main_goal             text,
   onboarding_completed  boolean not null default false,
   created_at            timestamptz not null default now(),

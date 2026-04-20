@@ -7,12 +7,13 @@ export default async function OnboardingLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { userId } = auth()
+  const { userId } = await auth()
 
   // Sin sesión → login
   if (!userId) redirect('/sign-in')
 
-  // Ya completó el onboarding → dashboard
+  // Siempre verificar Supabase — no confiar solo en la cookie porque puede
+  // ser de una sesión anterior (cuenta diferente) y causar un loop infinito.
   const supabase = createServiceClient()
   const { data: profile } = await supabase
     .from('profiles')
@@ -20,7 +21,10 @@ export default async function OnboardingLayout({
     .eq('clerk_id', userId)
     .single()
 
-  if (profile?.onboarding_completed) redirect('/dashboard')
+  // Solo redirigir al dashboard si Supabase confirma que está completado.
+  if (profile?.onboarding_completed) {
+    redirect('/dashboard')
+  }
 
   return <>{children}</>
 }

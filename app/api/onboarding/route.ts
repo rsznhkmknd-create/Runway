@@ -33,6 +33,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })
   }
 
+  // --- DEBUG LOGS (eliminar tras diagnosticar) ---
+  console.log('[onboarding] userId de Clerk:', userId)
+  console.log('[onboarding] SUPABASE_SERVICE_ROLE_KEY presente:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+  console.log('[onboarding] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+  // ------------------------------------------------
+
   // Service role client — bypasses RLS, no cookies needed
   const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,29 +46,42 @@ export async function POST(request: Request) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
+  const upsertPayload = {
+    clerk_id:             userId,
+    email,
+    full_name:            fullName,
+    company_name,
+    industry,
+    country,
+    employee_count,
+    business_type,
+    website:              website || null,
+    main_goal,
+    onboarding_completed: true,
+    updated_at:           new Date().toISOString(),
+  }
+
+  console.log('[onboarding] payload enviado a Supabase:', JSON.stringify(upsertPayload))
+
   // Upsert: cubre el caso donde el webhook aún no creó el perfil
-  const { error } = await supabase.from('profiles').upsert(
-    {
-      clerk_id:             userId,
-      email,
-      full_name:            fullName,
-      company_name,
-      industry,
-      country,
-      employee_count,
-      business_type,
-      website:              website || null,
-      main_goal,
-      onboarding_completed: true,
-      updated_at:           new Date().toISOString(),
-    },
+  const { error, data, status, statusText } = await supabase.from('profiles').upsert(
+    upsertPayload,
     { onConflict: 'clerk_id' }
-  )
+  ).select()
 
   if (error) {
-    console.error('[onboarding] Supabase error:', error)
+    console.error('[onboarding] Supabase error completo:', JSON.stringify({
+      message:    error.message,
+      details:    error.details,
+      hint:       error.hint,
+      code:       error.code,
+      status,
+      statusText,
+    }))
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  console.log('[onboarding] upsert exitoso, filas afectadas:', JSON.stringify(data))
 
   // Establecer cookie para que el middleware no vuelva a redirigir al wizard
   const response = NextResponse.json({ success: true })

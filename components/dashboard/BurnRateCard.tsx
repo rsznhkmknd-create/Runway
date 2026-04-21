@@ -1,13 +1,24 @@
 import { Flame, TrendingDown } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 
+interface CategoryStat {
+  label: string
+  amount: number
+}
+
 interface Props {
   monthly: number
   trend: number
   prevMonthly: number
+  topCategories?: CategoryStat[]
 }
 
-export default function BurnRateCard({ monthly, trend, prevMonthly }: Props) {
+export default function BurnRateCard({
+  monthly,
+  trend,
+  prevMonthly,
+  topCategories = [],
+}: Props) {
   const improved = trend <= 0
 
   return (
@@ -23,9 +34,7 @@ export default function BurnRateCard({ monthly, trend, prevMonthly }: Props) {
         </div>
         <span
           className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${
-            improved
-              ? 'bg-brand-50 text-brand-700'
-              : 'bg-red-50 text-red-600'
+            improved ? 'bg-brand-50 text-brand-700' : 'bg-red-50 text-red-600'
           }`}
         >
           <TrendingDown className={`w-3 h-3 ${!improved ? 'rotate-180' : ''}`} />
@@ -40,22 +49,20 @@ export default function BurnRateCard({ monthly, trend, prevMonthly }: Props) {
         </p>
         <p className="text-sm text-gray-500 mt-2">
           Mes anterior:{' '}
-          <span className="font-semibold text-gray-700">
-            {formatCurrency(prevMonthly)}
-          </span>
+          <span className="font-semibold text-gray-700">{formatCurrency(prevMonthly)}</span>
         </p>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <div className="bg-gray-50 rounded-xl p-3">
-          <p className="text-xs text-gray-500">Nóminas</p>
-          <p className="font-semibold text-gray-900 text-sm mt-0.5">{formatCurrency(18000)}</p>
+      {topCategories.length > 0 && (
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {topCategories.slice(0, 2).map((cat) => (
+            <div key={cat.label} className="bg-gray-50 rounded-xl p-3">
+              <p className="text-xs text-gray-500 truncate">{cat.label}</p>
+              <p className="font-semibold text-gray-900 text-sm mt-0.5">{formatCurrency(cat.amount)}</p>
+            </div>
+          ))}
         </div>
-        <div className="bg-gray-50 rounded-xl p-3">
-          <p className="text-xs text-gray-500">Operaciones</p>
-          <p className="font-semibold text-gray-900 text-sm mt-0.5">{formatCurrency(12000)}</p>
-        </div>
-      </div>
+      )}
     </div>
   )
 }

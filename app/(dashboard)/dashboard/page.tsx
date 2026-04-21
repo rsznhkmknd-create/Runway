@@ -5,8 +5,8 @@ import { Upload } from 'lucide-react'
 import RunwayCard from '@/components/dashboard/RunwayCard'
 import BurnRateCard from '@/components/dashboard/BurnRateCard'
 import AccountsReceivableCard from '@/components/dashboard/AccountsReceivableCard'
-import CashFlowChart from '@/components/dashboard/CashFlowChart'
-import RecentTransactions from '@/components/dashboard/RecentTransactions'
+import CashFlowChart, { type CashFlowDataPoint } from '@/components/dashboard/CashFlowChart'
+import RecentTransactions, { type RecentTransaction } from '@/components/dashboard/RecentTransactions'
 import { createServiceClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = { title: 'Dashboard' }
@@ -23,16 +23,25 @@ function monthsAgo(n: number) {
   return d
 }
 
+type DbTransaction = {
+  id: string
+  amount: number
+  type: string
+  date: string
+  category: string
+  description: string | null
+}
+
 interface Metrics {
-  runway:    { months: number; trend: number; cashBalance: number }
-  burnRate:  { monthly: number; trend: number; prevMonthly: number }
-  receivable:{ total: number; overdue: number; count: number }
-  hasData:   boolean
+  runway:     { months: number; trend: number; cashBalance: number }
+  burnRate:   { monthly: number; trend: number; prevMonthly: number }
+  receivable: { total: number; overdue: number; count: number }
+  hasData:    boolean
 }
 
 function calculateMetrics(
-  transactions: { amount: number; type: string; date: string }[],
-  invoices:     { amount: number; status: string }[]
+  transactions: DbTransaction[],
+  invoices: { amount: number; status: string }[]
 ): Metrics {
   if (!transactions.length && !invoices.length) {
     return {
@@ -43,22 +52,20 @@ function calculateMetrics(
     }
   }
 
-  const now         = new Date()
+  const now            = new Date()
   const thisMonthStart = startOfMonth(now)
   const prevMonthStart = startOfMonth(monthsAgo(1))
   const threeMonthsAgo = monthsAgo(3)
 
-  // Cash balance: all time income − expenses
-  const cashBalance = transactions.reduce((acc, t) => {
-    return acc + (t.type === 'income' ? t.amount : -t.amount)
-  }, 0)
+  const cashBalance = transactions.reduce(
+    (acc, t) => acc + (t.type === 'income' ? t.amount : -t.amount),
+    0
+  )
 
-  // Burn rate: expenses in current month
   const thisMonthExpenses = transactions
     .filter(t => t.type === 'expense' && new Date(t.date) >= thisMonthStart)
     .reduce((acc, t) => acc + t.amount, 0)
 
-  // Previous month expenses
   const prevMonthExpenses = transactions
     .filter(t => {
       const d = new Date(t.date)
@@ -66,63 +73,86 @@ function calculateMetrics(
     })
     .reduce((acc, t) => acc + t.amount, 0)
 
-  // Average monthly burn over last 3 months (for runway calc)
   const last3Expenses = transactions
     .filter(t => t.type === 'expense' && new Date(t.date) >= threeMonthsAgo)
     .reduce((acc, t) => acc + t.amount, 0)
   const avgMonthlyBurn = last3Expenses / 3
 
-  // Runway (months)
   const runwayMonths =
     avgMonthlyBurn > 0 && cashBalance > 0
       ? Math.round(cashBalance / avgMonthlyBurn)
       : 0
 
-  // Burn trend (% change vs previous month)
   const burnTrend =
     prevMonthExpenses > 0
       ? Math.round(((thisMonthExpenses - prevMonthExpenses) / prevMonthExpenses) * 100)
       : 0
 
-  // Runway trend (simplified: inverse of burn trend)
   const runwayTrend = -Math.sign(burnTrend) * Math.min(Math.abs(burnTrend), 99)
 
-  // Accounts receivable from invoices
-  const pendingInvoices = invoices.filter(i => i.status === 'pending' || i.status === 'overdue')
+  const pendingInvoices   = invoices.filter(i => i.status === 'pending' || i.status === 'overdue')
   const receivableTotal   = pendingInvoices.reduce((acc, i) => acc + i.amount, 0)
   const receivableOverdue = invoices
     .filter(i => i.status === 'overdue')
     .reduce((acc, i) => acc + i.amount, 0)
 
   return {
-    runway: {
-      months:      runwayMonths,
-      trend:       runwayTrend,
-      cashBalance: Math.max(cashBalance, 0),
-    },
-    burnRate: {
-      monthly:     thisMonthExpenses,
-      trend:       burnTrend,
-      prevMonthly: prevMonthExpenses,
-    },
-    receivable: {
-      total:  receivableTotal,
-      overdue: receivableOverdue,
-      count:  pendingInvoices.length,
-    },
-    hasData: transactions.length > 0,
+    runway:     { months: runwayMonths, trend: runwayTrend, cashBalance: Math.max(cashBalance, 0) },
+    burnRate:   { monthly: thisMonthExpenses, trend: burnTrend, prevMonthly: prevMonthExpenses },
+    receivable: { total: receivableTotal, overdue: receivableOverdue, count: pendingInvoices.length },
+    hasData:    transactions.length > 0,
   }
+}
+
+function buildCashFlowData(transactions: DbTransaction[]): CashFlowDataPoint[] {
+  const months: { key: string; label: string }[] = []
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(1)
+    d.setMonth(d.getMonth() - i)
+    const key   = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const label = d.toLocaleDateString('es-ES', { month: 'short' })
+    months.push({ key, label })
+  }
+
+  const totals: Record<string, { ingresos: number; gastos: number }> = {}
+  for (const { key } of months) totals[key] = { ingresos: 0, gastos: 0 }
+
+  for (const t of transactions) {
+    const d   = new Date(t.date)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    if (totals[key]) {
+      if (t.type === 'income') totals[key].ingresos += t.amount
+      else                     totals[key].gastos   += t.amount
+    }
+  }
+
+  return months.map(({ key, label }) => ({ month: label, ...totals[key] }))
+}
+
+function getTopExpenseCategories(transactions: DbTransaction[]) {
+  const thisMonthStart = startOfMonth(new Date())
+  const catTotals: Record<string, number> = {}
+
+  for (const t of transactions) {
+    if (t.type === 'expense' && new Date(t.date) >= thisMonthStart) {
+      catTotals[t.category] = (catTotals[t.category] ?? 0) + t.amount
+    }
+  }
+
+  return Object.entries(catTotals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([label, amount]) => ({ label, amount }))
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function DashboardPage() {
   const { userId } = await auth()
-  const user = await currentUser()
+  const user       = await currentUser()
+  const supabase   = createServiceClient()
 
-  const supabase = createServiceClient()
-
-  // Obtener profile_id
   const { data: profile } = await supabase
     .from('profiles')
     .select('id')
@@ -135,20 +165,28 @@ export default async function DashboardPage() {
     receivable: { total: 0, overdue: 0, count: 0 },
     hasData:    false,
   }
+  let cashFlowData: CashFlowDataPoint[]                  = buildCashFlowData([])
+  let recentTxs: RecentTransaction[]                     = []
+  let topCategories: { label: string; amount: number }[] = []
 
   if (profile?.id) {
     const [{ data: transactions }, { data: invoices }] = await Promise.all([
       supabase
         .from('transactions')
-        .select('amount, type, date')
-        .eq('profile_id', profile.id),
+        .select('id, amount, type, date, category, description')
+        .eq('profile_id', profile.id)
+        .order('date', { ascending: false }),
       supabase
         .from('invoices')
         .select('amount, status')
         .eq('profile_id', profile.id),
     ])
 
-    metrics = calculateMetrics(transactions ?? [], invoices ?? [])
+    const txs     = (transactions ?? []) as DbTransaction[]
+    metrics       = calculateMetrics(txs, invoices ?? [])
+    cashFlowData  = buildCashFlowData(txs)
+    recentTxs     = txs.slice(0, 6) as RecentTransaction[]
+    topCategories = getTopExpenseCategories(txs)
   }
 
   const firstName = user?.firstName ?? 'equipo'
@@ -172,7 +210,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Empty state — shown when there are no transactions yet */}
+      {/* Empty state */}
       {!metrics.hasData && (
         <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/50 px-8 py-12 text-center">
           <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-brand-100 flex items-center justify-center">
@@ -210,6 +248,7 @@ export default async function DashboardPage() {
           monthly={metrics.burnRate.monthly}
           trend={metrics.burnRate.trend}
           prevMonthly={metrics.burnRate.prevMonthly}
+          topCategories={topCategories}
         />
         <AccountsReceivableCard
           total={metrics.receivable.total}
@@ -221,10 +260,10 @@ export default async function DashboardPage() {
       {/* Charts + Table */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2">
-          <CashFlowChart />
+          <CashFlowChart data={cashFlowData} />
         </div>
         <div>
-          <RecentTransactions />
+          <RecentTransactions transactions={recentTxs} />
         </div>
       </div>
 

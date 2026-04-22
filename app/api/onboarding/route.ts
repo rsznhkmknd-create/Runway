@@ -2,7 +2,6 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
-import { ONBOARDING_COOKIE } from '@/middleware'
 
 export async function POST(request: Request) {
   const { userId } = await auth()
@@ -83,16 +82,5 @@ export async function POST(request: Request) {
 
   console.log('[onboarding] upsert exitoso, filas afectadas:', JSON.stringify(data))
 
-  // Establecer cookie para que el middleware no vuelva a redirigir al wizard
-  const response = NextResponse.json({ success: true })
-  response.cookies.set(ONBOARDING_COOKIE, '1', {
-    httpOnly: true,
-    sameSite: 'lax',
-    path:     '/',
-    // 1 año — el usuario no tiene que repetir el onboarding
-    maxAge:   60 * 60 * 24 * 365,
-    secure:   process.env.NODE_ENV === 'production',
-  })
-
-  return response
+  return NextResponse.json({ success: true })
 }

@@ -2,6 +2,35 @@ import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
+async function getProfileId(userId: string) {
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('clerk_id', userId)
+    .single()
+  return data?.id ?? null
+}
+
+export async function GET() {
+  const { userId } = await auth()
+  if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+  const profileId = await getProfileId(userId)
+  if (!profileId) return NextResponse.json({ invoices: [] })
+
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('id, client_name, amount, currency, due_date, status, created_at')
+    .eq('profile_id', profileId)
+    .order('due_date', { ascending: false })
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ invoices: data ?? [] })
+}
+
 export async function POST(request: Request) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
@@ -22,22 +51,14 @@ export async function POST(request: Request) {
     )
   }
 
+  const profileId = await getProfileId(userId)
+  if (!profileId) return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 })
+
   const supabase = createServiceClient()
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('clerk_id', userId)
-    .single()
-
-  if (!profile?.id) {
-    return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 })
-  }
-
   const { data, error } = await supabase
     .from('invoices')
     .insert({
-      profile_id: profile.id,
+      profile_id: profileId,
       client_name: client_name.trim(),
       amount: Number(amount),
       currency: currency ?? 'EUR',

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -8,7 +9,6 @@ import {
   AlertCircle,
   ChevronDown,
   Loader2,
-  ArrowRight,
   RefreshCw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -44,6 +44,7 @@ const CONFIDENCE_CONFIG = {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function FileUploadModule() {
+  const router = useRouter()
   const [step, setStep] = useState<Step>('idle')
   const [isDragging, setIsDragging] = useState(false)
   const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResult | null>(null)
@@ -100,6 +101,8 @@ export default function FileUploadModule() {
 
       setInsertedCount(data.inserted as number)
       setStep('success')
+      // Redirigir al dashboard para que los Server Components refresquen con los datos nuevos
+      router.push('/dashboard')
     } catch {
       setErrorMessage('Error de red durante la importación.')
       setStep('error')
@@ -186,25 +189,12 @@ export default function FileUploadModule() {
       <div className="border border-brand-100 rounded-2xl p-12 text-center bg-brand-50 shadow-sm">
         <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-brand-600" />
         <p className="text-xl font-bold text-gray-900 mb-1">¡Importación completada!</p>
-        <p className="text-gray-500 mb-6">
+        <p className="text-gray-500 mb-2">
           Se importaron{' '}
           <span className="font-semibold text-brand-700">{insertedCount} transacciones</span>{' '}
           correctamente.
         </p>
-        <div className="flex gap-3 justify-center">
-          <a
-            href="/dashboard/movimientos"
-            className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm"
-          >
-            Ver movimientos <ArrowRight className="w-4 h-4" />
-          </a>
-          <button
-            onClick={reset}
-            className="inline-flex items-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium px-5 py-2.5 rounded-xl transition-colors text-sm"
-          >
-            <RefreshCw className="w-4 h-4" /> Importar otro
-          </button>
-        </div>
+        <p className="text-sm text-gray-400">Redirigiendo al dashboard…</p>
       </div>
     )
   }

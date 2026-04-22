@@ -20,6 +20,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import FinsightLogo from '@/components/ui/FinsightLogo'
+import { fetchJson, FetchJsonError } from '@/lib/fetch-json'
+import { useToast } from '@/components/ui/Toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -185,6 +187,7 @@ const GOAL_MESSAGES: Record<string, { title: string; body: string }> = {
 
 export default function OnboardingWizard() {
   const router = useRouter()
+  const toast  = useToast()
   const [step, setStep]       = useState(1)
   const [done, setDone]       = useState(false)
   const [loading, setLoading] = useState(false)
@@ -211,18 +214,28 @@ export default function OnboardingWizard() {
   }
 
   const handleSubmit = async () => {
+    if (loading) return
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/onboarding', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(data),
+      await fetchJson('/api/onboarding', {
+        method:    'POST',
+        headers:   { 'Content-Type': 'application/json' },
+        body:      JSON.stringify(data),
+        timeoutMs: 20_000,
       })
-      if (!res.ok) throw new Error('Error al guardar')
+      toast.success('¡Tu espacio financiero está listo!')
       setDone(true)
-    } catch {
-      setError('Hubo un problema al guardar los datos. Inténtalo de nuevo.')
+    } catch (err) {
+      // NOTE: we do NOT clear `data` on error — the wizard state holds the
+      // full form across retries so the user never loses what they typed.
+      const message =
+        err instanceof FetchJsonError
+          ? err.kind === 'timeout'
+            ? 'Tardamos demasiado en guardar. Verifica tu conexión e inténtalo de nuevo — tus datos siguen aquí.'
+            : `No pudimos guardar tus datos: ${err.message}. Inténtalo de nuevo.`
+          : 'Hubo un problema al guardar los datos. Inténtalo de nuevo.'
+      setError(message)
       setLoading(false)
     }
   }

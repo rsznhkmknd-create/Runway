@@ -14,6 +14,8 @@ import {
   ArrowRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { fetchJson, FetchJsonError } from '@/lib/fetch-json'
+import { useToast } from '@/components/ui/Toast'
 import { formatPeriod } from '@/lib/reports/period'
 import type { ReportRow, ReportType } from '@/lib/reports/types'
 
@@ -21,8 +23,11 @@ type Props = {
   initialReports: ReportRow[]
 }
 
+const REPORT_TIMEOUT_MS = 45_000
+
 export default function ReportsClient({ initialReports }: Props) {
   const router = useRouter()
+  const toast  = useToast()
   const [reports, setReports] = useState<ReportRow[]>(initialReports)
   const [busy, setBusy] = useState<ReportType | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -30,20 +35,28 @@ export default function ReportsClient({ initialReports }: Props) {
   const [, startTransition] = useTransition()
 
   const generate = async (type: ReportType) => {
+    if (busy !== null) return
     setBusy(type)
     setError('')
     try {
-      const res = await fetch('/api/reports', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ type }),
+      const json = await fetchJson<{ report: ReportRow }>('/api/reports', {
+        method:    'POST',
+        headers:   { 'Content-Type': 'application/json' },
+        body:      JSON.stringify({ type }),
+        timeoutMs: REPORT_TIMEOUT_MS,
       })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Error al generar el reporte')
-      const newReport = json.report as ReportRow
-      startTransition(() => router.push(`/dashboard/reportes/${newReport.id}`))
+      toast.success('Reporte generado correctamente.')
+      startTransition(() => router.push(`/dashboard/reportes/${json.report.id}`))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al generar el reporte')
+      const message =
+        err instanceof FetchJsonError
+          ? err.kind === 'timeout'
+            ? 'El reporte está tardando más de lo normal, por favor intenta de nuevo.'
+            : err.message
+          : err instanceof Error
+          ? err.message
+          : 'Error al generar el reporte'
+      setError(message)
       setBusy(null)
     }
   }
@@ -52,8 +65,13 @@ export default function ReportsClient({ initialReports }: Props) {
     if (!confirm('¿Eliminar este reporte?')) return
     setDeleting(id)
     try {
-      const res = await fetch(`/api/reports/${id}`, { method: 'DELETE' })
-      if (res.ok) setReports((r) => r.filter((x) => x.id !== id))
+      await fetchJson(`/api/reports/${id}`, { method: 'DELETE', timeoutMs: 10_000 })
+      setReports((r) => r.filter((x) => x.id !== id))
+      toast.success('Reporte eliminado.')
+    } catch (err) {
+      const message =
+        err instanceof FetchJsonError ? err.message : 'Error al eliminar el reporte'
+      toast.error(message)
     } finally {
       setDeleting(null)
     }

@@ -101,6 +101,16 @@ export async function POST(req: Request) {
     )
   }
 
+  if (parsed.rows.length < 2) {
+    return NextResponse.json(
+      {
+        error:
+          'El archivo necesita al menos 2 filas de datos para poder analizarlo (una sola transacción no permite detectar patrones).',
+      },
+      { status: 422 }
+    )
+  }
+
   // ── Ask Claude to identify the structure ───────────────────────────────────
   const sampleRows = parsed.rows.slice(0, 15)
   const userPrompt = buildUserPrompt(parsed.columns, sampleRows)
@@ -120,12 +130,23 @@ export async function POST(req: Request) {
       .join('')
 
     const jsonStr = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim()
-    mapping = JSON.parse(jsonStr) as ColumnMapping
+    try {
+      mapping = JSON.parse(jsonStr) as ColumnMapping
+    } catch (parseErr) {
+      console.error('[analyze] JSON parse error:', parseErr, 'response:', text.slice(0, 500))
+      return NextResponse.json(
+        {
+          error:
+            'La respuesta del modelo no pudo interpretarse. Esto es un problema temporal — inténtalo de nuevo.',
+        },
+        { status: 502 }
+      )
+    }
   } catch (err) {
     console.error('[analyze] Claude error:', err)
     return NextResponse.json(
       { error: 'No se pudo analizar el archivo. Inténtalo de nuevo en un momento.' },
-      { status: 422 }
+      { status: 502 }
     )
   }
 

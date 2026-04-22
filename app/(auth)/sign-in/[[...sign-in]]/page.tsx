@@ -1,7 +1,14 @@
 import { SignIn } from '@clerk/nextjs'
+import { Clock } from 'lucide-react'
 import FinsightLogo from '@/components/ui/FinsightLogo'
 
-export default function SignInPage() {
+type Props = {
+  searchParams: { expired?: string }
+}
+
+export default function SignInPage({ searchParams }: Props) {
+  const expired = searchParams.expired === '1'
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -12,6 +19,19 @@ export default function SignInPage() {
           </div>
           <p className="text-gray-500 text-sm">Accede a tu dashboard financiero</p>
         </div>
+
+        {expired && (
+          <div
+            role="alert"
+            className="mb-4 flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3"
+          >
+            <Clock className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+            <p className="text-sm text-amber-800">
+              Tu sesión expiró. Inicia sesión de nuevo para continuar.
+            </p>
+          </div>
+        )}
+
         <SignIn
           appearance={{
             elements: {

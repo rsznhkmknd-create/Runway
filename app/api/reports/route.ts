@@ -99,6 +99,15 @@ export async function POST(request: Request) {
     )
   }
 
+  if (currentTx.length < 5) {
+    return NextResponse.json(
+      {
+        error: `Solo hay ${currentTx.length} transacción${currentTx.length === 1 ? '' : 'es'} en el período. Necesitamos al menos 5 para generar un análisis útil.`,
+      },
+      { status: 422 }
+    )
+  }
+
   const cashBalance = (allRes.data ?? []).reduce(
     (sum, t) => sum + (t.type === 'income' ? 1 : -1) * Number(t.amount),
     0

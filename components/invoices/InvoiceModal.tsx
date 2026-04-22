@@ -11,6 +11,9 @@ import {
   FilePlus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { fetchJson, FetchJsonError } from '@/lib/fetch-json'
+import { todayIso } from '@/lib/safe'
+import { useToast } from '@/components/ui/Toast'
 
 type Tab = 'manual' | 'upload'
 
@@ -45,6 +48,7 @@ type Props = {
 }
 
 export default function InvoiceModal({ open, onClose, onCreated }: Props) {
+  const toast = useToast()
   const [tab, setTab]         = useState<Tab>('manual')
   const [form, setForm]       = useState<FormState>(EMPTY)
   const [saving, setSaving]   = useState(false)
@@ -54,6 +58,7 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
   const [extracting, setExtracting] = useState(false)
   const [uploadedName, setUploadedName] = useState<string | null>(null)
   const [extractedOk, setExtractedOk] = useState(false)
+  const [extractionFailed, setExtractionFailed] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
   const resetAll = useCallback(() => {
@@ -62,6 +67,7 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
     setExtracting(false)
     setUploadedName(null)
     setExtractedOk(false)
+    setExtractionFailed(false)
     setSaving(false)
     setTab('manual')
   }, [])
@@ -77,25 +83,39 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
 
   // ── Upload flow ────────────────────────────────────────────────────────────
   const handleFile = async (file: File) => {
+    if (file.size === 0) {
+      setError('El archivo está vacío.')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError('El archivo supera el límite de 10 MB.')
+      return
+    }
+
     setError('')
     setExtracting(true)
     setUploadedName(file.name)
     setExtractedOk(false)
+    setExtractionFailed(false)
 
     const fd = new FormData()
     fd.append('file', file)
 
     try {
-      const res  = await fetch('/api/invoices/extract', { method: 'POST', body: fd })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Error al extraer datos')
+      const json = await fetchJson<{
+        extracted: {
+          client_name: string | null
+          amount: number | null
+          currency: string | null
+          due_date: string | null
+        }
+      }>('/api/invoices/extract', {
+        method:    'POST',
+        body:      fd,
+        timeoutMs: 45_000,
+      })
 
-      const e = json.extracted as {
-        client_name: string | null
-        amount: number | null
-        currency: string | null
-        due_date: string | null
-      }
+      const e = json.extracted
 
       setForm({
         client_name: e.client_name ?? '',
@@ -106,8 +126,17 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
       })
       setExtractedOk(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al procesar el archivo')
-      setUploadedName(null)
+      // On extraction failure, still let the user complete the form manually.
+      const message =
+        err instanceof FetchJsonError && err.kind === 'timeout'
+          ? 'La extracción tardó demasiado.'
+          : err instanceof Error
+          ? err.message
+          : 'No pudimos extraer los datos del archivo.'
+      setError(`${message} Puedes ingresarlos manualmente abajo.`)
+      setExtractionFailed(true)
+      setExtractedOk(true) // reveal the form so the user can type
+      setForm(EMPTY)
     } finally {
       setExtracting(false)
     }
@@ -120,37 +149,64 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
   }
 
   // ── Save ──────────────────────────────────────────────────────────────────
+  const amountNum = Number(form.amount)
   const canSubmit =
     form.client_name.trim() !== '' &&
     form.amount.trim() !== '' &&
-    !Number.isNaN(Number(form.amount)) &&
-    Number(form.amount) > 0 &&
+    !Number.isNaN(amountNum) &&
+    amountNum > 0 &&
     form.due_date.trim() !== ''
 
+  // Block past due dates only when the status is 'pending' (a new, unpaid
+  // invoice shouldn't be created already expired). 'overdue' and 'paid' allow
+  // any date so users can backfill historical invoices.
+  const dueDateIsPastForPending =
+    form.status === 'pending' &&
+    form.due_date.trim() !== '' &&
+    form.due_date < todayIso()
+
   const handleSave = async () => {
-    if (!canSubmit) return
+    if (!canSubmit || saving) return
+
+    // Extra explicit validations with clear messages.
+    if (amountNum <= 0) {
+      setError('El monto debe ser un número mayor a 0.')
+      return
+    }
+    if (dueDateIsPastForPending) {
+      setError(
+        'La fecha de vencimiento no puede ser anterior a hoy para facturas pendientes. Cambia el estado a "Vencida" o usa una fecha futura.'
+      )
+      return
+    }
+
     setSaving(true)
     setError('')
 
     try {
-      const res = await fetch('/api/invoices', {
+      await fetchJson('/api/invoices', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           client_name: form.client_name,
-          amount:      Number(form.amount),
+          amount:      amountNum,
           currency:    form.currency,
           due_date:    form.due_date,
           status:      form.status,
         }),
+        timeoutMs: 15_000,
       })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Error al guardar')
-
+      toast.success(`Factura de ${form.client_name.trim()} guardada.`)
       resetAll()
       onCreated()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar')
+      const message =
+        err instanceof FetchJsonError
+          ? err.kind === 'timeout'
+            ? 'Tardamos demasiado en guardar. Inténtalo de nuevo.'
+            : err.message
+          : 'Error al guardar'
+      setError(message)
       setSaving(false)
     }
   }

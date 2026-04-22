@@ -8,6 +8,7 @@ import AccountsReceivableCard from '@/components/dashboard/AccountsReceivableCar
 import CashFlowChart, { type CashFlowDataPoint } from '@/components/dashboard/CashFlowChart'
 import RecentTransactions, { type RecentTransaction } from '@/components/dashboard/RecentTransactions'
 import { createServiceClient } from '@/lib/supabase/server'
+import { safeNumber, isValidDate } from '@/lib/safe'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -57,25 +58,31 @@ function calculateMetrics(
   const prevMonthStart = startOfMonth(monthsAgo(1))
   const threeMonthsAgo = monthsAgo(3)
 
-  const cashBalance = transactions.reduce(
-    (acc, t) => acc + (t.type === 'income' ? t.amount : -t.amount),
+  // Filter out transactions with invalid dates or amounts so they can't
+  // break downstream date math.
+  const safeTxs = transactions.filter(
+    (t) => isValidDate(t.date) && isFinite(safeNumber(t.amount))
+  )
+
+  const cashBalance = safeTxs.reduce(
+    (acc, t) => acc + (t.type === 'income' ? safeNumber(t.amount) : -safeNumber(t.amount)),
     0
   )
 
-  const thisMonthExpenses = transactions
-    .filter(t => t.type === 'expense' && new Date(t.date) >= thisMonthStart)
-    .reduce((acc, t) => acc + t.amount, 0)
+  const thisMonthExpenses = safeTxs
+    .filter((t) => t.type === 'expense' && new Date(t.date) >= thisMonthStart)
+    .reduce((acc, t) => acc + safeNumber(t.amount), 0)
 
-  const prevMonthExpenses = transactions
-    .filter(t => {
+  const prevMonthExpenses = safeTxs
+    .filter((t) => {
       const d = new Date(t.date)
       return t.type === 'expense' && d >= prevMonthStart && d < thisMonthStart
     })
-    .reduce((acc, t) => acc + t.amount, 0)
+    .reduce((acc, t) => acc + safeNumber(t.amount), 0)
 
-  const last3Expenses = transactions
-    .filter(t => t.type === 'expense' && new Date(t.date) >= threeMonthsAgo)
-    .reduce((acc, t) => acc + t.amount, 0)
+  const last3Expenses = safeTxs
+    .filter((t) => t.type === 'expense' && new Date(t.date) >= threeMonthsAgo)
+    .reduce((acc, t) => acc + safeNumber(t.amount), 0)
   const avgMonthlyBurn = last3Expenses / 3
 
   const runwayMonths =
@@ -91,16 +98,16 @@ function calculateMetrics(
   const runwayTrend = -Math.sign(burnTrend) * Math.min(Math.abs(burnTrend), 99)
 
   const pendingInvoices   = invoices.filter(i => i.status === 'pending' || i.status === 'overdue')
-  const receivableTotal   = pendingInvoices.reduce((acc, i) => acc + i.amount, 0)
+  const receivableTotal   = pendingInvoices.reduce((acc, i) => acc + safeNumber(i.amount), 0)
   const receivableOverdue = invoices
     .filter(i => i.status === 'overdue')
-    .reduce((acc, i) => acc + i.amount, 0)
+    .reduce((acc, i) => acc + safeNumber(i.amount), 0)
 
   return {
-    runway:     { months: runwayMonths, trend: runwayTrend, cashBalance: Math.max(cashBalance, 0) },
-    burnRate:   { monthly: thisMonthExpenses, trend: burnTrend, prevMonthly: prevMonthExpenses },
-    receivable: { total: receivableTotal, overdue: receivableOverdue, count: pendingInvoices.length },
-    hasData:    transactions.length > 0,
+    runway:     { months: safeNumber(runwayMonths), trend: safeNumber(runwayTrend), cashBalance: Math.max(cashBalance, 0) },
+    burnRate:   { monthly: safeNumber(thisMonthExpenses), trend: safeNumber(burnTrend), prevMonthly: safeNumber(prevMonthExpenses) },
+    receivable: { total: safeNumber(receivableTotal), overdue: safeNumber(receivableOverdue), count: pendingInvoices.length },
+    hasData:    safeTxs.length > 0,
   }
 }
 
@@ -119,11 +126,13 @@ function buildCashFlowData(transactions: DbTransaction[]): CashFlowDataPoint[] {
   for (const { key } of months) totals[key] = { ingresos: 0, gastos: 0 }
 
   for (const t of transactions) {
+    if (!isValidDate(t.date)) continue
     const d   = new Date(t.date)
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     if (totals[key]) {
-      if (t.type === 'income') totals[key].ingresos += t.amount
-      else                     totals[key].gastos   += t.amount
+      const amt = safeNumber(t.amount)
+      if (t.type === 'income') totals[key].ingresos += amt
+      else                     totals[key].gastos   += amt
     }
   }
 
@@ -135,8 +144,9 @@ function getTopExpenseCategories(transactions: DbTransaction[]) {
   const catTotals: Record<string, number> = {}
 
   for (const t of transactions) {
+    if (!isValidDate(t.date)) continue
     if (t.type === 'expense' && new Date(t.date) >= thisMonthStart) {
-      catTotals[t.category] = (catTotals[t.category] ?? 0) + t.amount
+      catTotals[t.category] = (catTotals[t.category] ?? 0) + safeNumber(t.amount)
     }
   }
 
@@ -170,7 +180,7 @@ export default async function DashboardPage() {
   let topCategories: { label: string; amount: number }[] = []
 
   if (profile?.id) {
-    const [{ data: transactions }, { data: invoices }] = await Promise.all([
+    const [txResult, invResult] = await Promise.all([
       supabase
         .from('transactions')
         .select('id, amount, type, date, category, description')
@@ -182,8 +192,29 @@ export default async function DashboardPage() {
         .eq('profile_id', profile.id),
     ])
 
-    const txs     = (transactions ?? []) as DbTransaction[]
-    metrics       = calculateMetrics(txs, invoices ?? [])
+    // Propagate Supabase errors to the nearest error boundary so the user sees
+    // a "Retry" UI instead of a blank / misleading-empty dashboard.
+    if (txResult.error) {
+      throw new Error(
+        `No pudimos cargar tus transacciones: ${txResult.error.message}`
+      )
+    }
+    if (invResult.error) {
+      throw new Error(
+        `No pudimos cargar tus facturas: ${invResult.error.message}`
+      )
+    }
+
+    const txs     = (txResult.data ?? []).map((t) => ({
+      ...t,
+      amount: safeNumber(t.amount),
+    })) as DbTransaction[]
+    const invs    = (invResult.data ?? []).map((i) => ({
+      ...i,
+      amount: safeNumber(i.amount),
+    }))
+
+    metrics       = calculateMetrics(txs, invs)
     cashFlowData  = buildCashFlowData(txs)
     recentTxs     = txs.slice(0, 6) as RecentTransaction[]
     topCategories = getTopExpenseCategories(txs)

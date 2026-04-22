@@ -14,6 +14,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn, formatCurrency } from '@/lib/utils'
+import { fetchJson, FetchJsonError } from '@/lib/fetch-json'
+import { useToast } from '@/components/ui/Toast'
 import InvoiceModal from './InvoiceModal'
 
 export type Invoice = {
@@ -43,10 +45,11 @@ type Props = {
 
 export default function InvoicesClient({ initialInvoices }: Props) {
   const router = useRouter()
+  const toast  = useToast()
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices)
   const [modalOpen, setModalOpen] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [_, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
 
   const totals = useMemo(() => {
     const pending = invoices
@@ -64,41 +67,52 @@ export default function InvoicesClient({ initialInvoices }: Props) {
   const refresh = async () => {
     setModalOpen(false)
     try {
-      const res = await fetch('/api/invoices', { cache: 'no-store' })
-      const json = await res.json()
-      if (res.ok) setInvoices(json.invoices as Invoice[])
+      const json = await fetchJson<{ invoices: Invoice[] }>('/api/invoices', {
+        cache:     'no-store',
+        timeoutMs: 10_000,
+      })
+      setInvoices(json.invoices)
     } catch {
-      // fall back to server refresh
+      // Silent fallback — the server refresh below will repopulate anyway.
     }
     startTransition(() => router.refresh())
   }
 
   const markPaid = async (id: string) => {
+    if (busyId) return
     setBusyId(id)
     try {
-      const res = await fetch(`/api/invoices/${id}`, {
-        method:  'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'paid' }),
+      await fetchJson(`/api/invoices/${id}`, {
+        method:    'PATCH',
+        headers:   { 'Content-Type': 'application/json' },
+        body:      JSON.stringify({ status: 'paid' }),
+        timeoutMs: 10_000,
       })
-      if (res.ok) {
-        setInvoices((prev) =>
-          prev.map((i) => (i.id === id ? { ...i, status: 'paid' } : i))
-        )
-      }
+      setInvoices((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, status: 'paid' } : i))
+      )
+      toast.success('Factura marcada como pagada.')
+    } catch (err) {
+      const message =
+        err instanceof FetchJsonError ? err.message : 'Error al actualizar la factura'
+      toast.error(message)
     } finally {
       setBusyId(null)
     }
   }
 
   const remove = async (id: string) => {
+    if (busyId) return
     if (!confirm('¿Eliminar esta factura? Esta acción no se puede deshacer.')) return
     setBusyId(id)
     try {
-      const res = await fetch(`/api/invoices/${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        setInvoices((prev) => prev.filter((i) => i.id !== id))
-      }
+      await fetchJson(`/api/invoices/${id}`, { method: 'DELETE', timeoutMs: 10_000 })
+      setInvoices((prev) => prev.filter((i) => i.id !== id))
+      toast.success('Factura eliminada.')
+    } catch (err) {
+      const message =
+        err instanceof FetchJsonError ? err.message : 'Error al eliminar la factura'
+      toast.error(message)
     } finally {
       setBusyId(null)
     }

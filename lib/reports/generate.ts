@@ -165,7 +165,15 @@ REGLAS DE CÁLCULO:
     .replace(/\n?```$/i, '')
     .trim()
 
-  const parsed = JSON.parse(jsonStr) as ReportContent
+  let parsed: ReportContent
+  try {
+    parsed = JSON.parse(jsonStr) as ReportContent
+  } catch (err) {
+    console.error('[reports/generate] JSON parse error:', err, 'response:', text.slice(0, 500))
+    throw new Error(
+      'La respuesta del modelo no es JSON válido. Inténtalo de nuevo en un momento.'
+    )
+  }
 
   // Defensive normalization
   parsed.currency = args.profile.currency

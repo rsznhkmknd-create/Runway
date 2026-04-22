@@ -15,6 +15,8 @@ import {
   ArrowDownCircle,
 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
+import { fetchJson, FetchJsonError } from '@/lib/fetch-json'
+import { useToast } from '@/components/ui/Toast'
 import type { NormalizedTransaction } from '@/lib/normalize-transactions'
 
 interface AnalyzeResult {
@@ -28,8 +30,14 @@ interface AnalyzeResult {
 
 type Step = 'idle' | 'analyzing' | 'preview' | 'importing' | 'success' | 'error'
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024
+const ALLOWED_EXTS = ['.xlsx', '.xls', '.csv', '.ods']
+const ANALYZE_TIMEOUT_MS = 30_000
+const IMPORT_TIMEOUT_MS  = 60_000
+
 export default function FileUploadModule() {
   const router = useRouter()
+  const toast  = useToast()
   const [step, setStep] = useState<Step>('idle')
   const [isDragging, setIsDragging] = useState(false)
   const [result, setResult] = useState<AnalyzeResult | null>(null)
@@ -45,6 +53,24 @@ export default function FileUploadModule() {
   }
 
   const handleFile = useCallback(async (file: File) => {
+    // ── Client-side validations (cheap fail-fast) ──────────────────────
+    if (file.size === 0) {
+      setErrorMessage('El archivo está vacío.')
+      setStep('error')
+      return
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setErrorMessage('El archivo supera el límite de 10 MB.')
+      setStep('error')
+      return
+    }
+    const lower = file.name.toLowerCase()
+    if (!ALLOWED_EXTS.some((ext) => lower.endsWith(ext))) {
+      setErrorMessage(`Formato no soportado. Usa: ${ALLOWED_EXTS.join(', ')}`)
+      setStep('error')
+      return
+    }
+
     setStep('analyzing')
     setErrorMessage('')
     setResult(null)
@@ -53,50 +79,57 @@ export default function FileUploadModule() {
     formData.append('file', file)
 
     try {
-      const res = await fetch('/api/upload/analyze', { method: 'POST', body: formData })
-      const data = await res.json()
-
-      if (!res.ok) {
-        setErrorMessage(data.error ?? 'Error al analizar el archivo.')
-        setStep('error')
-        return
-      }
-
-      setResult(data as AnalyzeResult)
+      const data = await fetchJson<AnalyzeResult>('/api/upload/analyze', {
+        method:    'POST',
+        body:      formData,
+        timeoutMs: ANALYZE_TIMEOUT_MS,
+      })
+      setResult(data)
       setStep('preview')
-    } catch {
-      setErrorMessage('Error de red. Verifica tu conexión e inténtalo de nuevo.')
+    } catch (err) {
+      let message = 'Error al analizar el archivo.'
+      if (err instanceof FetchJsonError) {
+        if (err.kind === 'timeout') {
+          message = 'Claude tardó demasiado en analizar el archivo (más de 30s). Inténtalo de nuevo.'
+        } else {
+          message = err.message
+        }
+      }
+      setErrorMessage(message)
       setStep('error')
     }
   }, [])
 
   const handleConfirm = useCallback(async () => {
-    if (!result) return
+    if (!result || step === 'importing') return
     setStep('importing')
     setErrorMessage('')
 
     try {
-      const res = await fetch('/api/upload/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactions: result.transactions }),
-      })
-      const data = await res.json()
-
-      if (!res.ok) {
-        setErrorMessage(data.error ?? 'Error al importar las transacciones.')
-        setStep('error')
-        return
-      }
-
-      setInsertedCount(data.inserted as number)
+      const data = await fetchJson<{ inserted: number; total: number }>(
+        '/api/upload/import',
+        {
+          method:    'POST',
+          headers:   { 'Content-Type': 'application/json' },
+          body:      JSON.stringify({ transactions: result.transactions }),
+          timeoutMs: IMPORT_TIMEOUT_MS,
+        }
+      )
+      setInsertedCount(data.inserted)
       setStep('success')
+      toast.success(`${data.inserted} transacciones importadas correctamente.`)
       setTimeout(() => router.push('/dashboard'), 1200)
-    } catch {
-      setErrorMessage('Error de red durante la importación.')
+    } catch (err) {
+      const message =
+        err instanceof FetchJsonError
+          ? err.kind === 'timeout'
+            ? 'La importación tardó demasiado. Inténtalo de nuevo.'
+            : err.message
+          : 'Error durante la importación.'
+      setErrorMessage(message)
       setStep('error')
     }
-  }, [result, router])
+  }, [result, router, toast, step])
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {

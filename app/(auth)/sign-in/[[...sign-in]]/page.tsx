@@ -1,4 +1,5 @@
 import { SignIn } from '@clerk/nextjs'
+import FinsightLogo from '@/components/ui/FinsightLogo'
 
 export default function SignInPage() {
   return (
@@ -6,10 +7,8 @@ export default function SignInPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-9 h-9 bg-brand-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">R</span>
-            </div>
-            <span className="font-semibold text-gray-900 text-xl">Runway</span>
+            <FinsightLogo size={36} />
+            <span className="font-semibold text-gray-900 text-xl">Finsight</span>
           </div>
           <p className="text-gray-500 text-sm">Accede a tu dashboard financiero</p>
         </div>

@@ -75,8 +75,8 @@ export default function CashFlowChart({ data }: Props) {
           <AreaChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#16a34a" stopOpacity={0.12} />
-                <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
+                <stop offset="5%" stopColor="#00C48C" stopOpacity={0.12} />
+                <stop offset="95%" stopColor="#00C48C" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorGastos" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#f87171" stopOpacity={0.12} />
@@ -100,11 +100,11 @@ export default function CashFlowChart({ data }: Props) {
             <Area
               type="monotone"
               dataKey="ingresos"
-              stroke="#16a34a"
+              stroke="#00C48C"
               strokeWidth={2}
               fill="url(#colorIngresos)"
               dot={false}
-              activeDot={{ r: 4, fill: '#16a34a' }}
+              activeDot={{ r: 4, fill: '#00C48C' }}
             />
             <Area
               type="monotone"

@@ -12,6 +12,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import FinsightLogo from '@/components/ui/FinsightLogo'
 
 const navItems = [
   { href: '/dashboard',              label: 'Dashboard',   icon: LayoutDashboard },
@@ -29,10 +30,8 @@ export default function Sidebar() {
     <aside className="hidden lg:flex flex-col w-60 border-r border-gray-100 bg-white py-6 px-4 shrink-0">
       {/* Logo */}
       <Link href="/dashboard" className="flex items-center gap-2.5 px-2 mb-8">
-        <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center shrink-0">
-          <span className="text-white font-bold text-sm">R</span>
-        </div>
-        <span className="font-semibold text-gray-900 text-base">Runway</span>
+        <FinsightLogo size={32} />
+        <span className="font-semibold text-gray-900 text-base">Finsight</span>
       </Link>
 
       {/* Nav */}

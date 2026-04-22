@@ -19,6 +19,7 @@ import {
   Rocket,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import FinsightLogo from '@/components/ui/FinsightLogo'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -281,9 +282,9 @@ export default function OnboardingWizard() {
         {/* Logo */}
         <div className="relative z-10 flex items-center gap-2.5">
           <div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-            <span className="text-white font-bold text-base">R</span>
+            <FinsightLogo size={24} color="#FFFFFF" />
           </div>
-          <span className="text-white font-semibold text-lg tracking-tight">Runway</span>
+          <span className="text-white font-semibold text-lg tracking-tight">Finsight</span>
         </div>
 
         {/* Headline + steps */}
@@ -352,10 +353,8 @@ export default function OnboardingWizard() {
         {/* Mobile top bar */}
         <div className="lg:hidden flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">R</span>
-            </div>
-            <span className="font-semibold text-gray-900 text-sm">Runway</span>
+            <FinsightLogo size={28} />
+            <span className="font-semibold text-gray-900 text-sm">Finsight</span>
           </div>
           <span className="text-xs text-gray-400 font-medium">Paso {step} de 3</span>
         </div>

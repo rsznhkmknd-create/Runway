@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
---  Runway — Supabase Schema
+--  Finsight — Supabase Schema
 -- ═══════════════════════════════════════════════════════════
 
 -- Habilitar extensión UUID

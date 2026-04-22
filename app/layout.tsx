@@ -4,12 +4,12 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: {
-    default: 'Runway — Control Financiero para PYMEs',
-    template: '%s | Runway',
+    default: 'Finsight — Control Financiero para PYMEs',
+    template: '%s | Finsight',
   },
   description:
     'Visualiza tu runway, burn rate y flujo de caja en tiempo real. El copiloto financiero para startups y PYMEs en España y LATAM.',
-  keywords: ['runway', 'burn rate', 'finanzas', 'startup', 'PYME', 'España', 'LATAM'],
+  keywords: ['finsight', 'runway', 'burn rate', 'finanzas', 'startup', 'PYME', 'España', 'LATAM'],
 }
 
 export default function RootLayout({

@@ -10,17 +10,26 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          50:  '#f0fdf4',
-          100: '#dcfce7',
-          200: '#bbf7d0',
-          300: '#86efac',
-          400: '#4ade80',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-          800: '#166534',
-          900: '#14532d',
+          50:  '#e6faf3',
+          100: '#b8f0d8',
+          200: '#8ae6bd',
+          300: '#5cdba2',
+          400: '#2ed087',
+          500: '#1acd85',
+          600: '#00C48C',
+          700: '#00a374',
+          800: '#00825c',
+          900: '#006145',
         },
+        // Finsight theme tokens
+        navy: {
+          DEFAULT: '#111827',
+          surface: '#0F1D2D',
+        },
+        background: '#111827',
+        surface: '#0F1D2D',
+        accent: '#00C48C',
+        steel: '#4a5568',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

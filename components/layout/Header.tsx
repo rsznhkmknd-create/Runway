@@ -1,5 +1,6 @@
 import { UserButton } from '@clerk/nextjs'
 import { Bell } from 'lucide-react'
+import FinsightLogo from '@/components/ui/FinsightLogo'
 
 export default function Header() {
   return (
@@ -7,10 +8,8 @@ export default function Header() {
       <div className="flex items-center gap-3">
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-2">
-          <div className="w-7 h-7 bg-brand-600 rounded-md flex items-center justify-center">
-            <span className="text-white font-bold text-xs">R</span>
-          </div>
-          <span className="font-semibold text-gray-900">Runway</span>
+          <FinsightLogo size={28} />
+          <span className="font-semibold text-gray-900">Finsight</span>
         </div>
       </div>
 

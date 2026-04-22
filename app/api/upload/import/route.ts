@@ -1,20 +1,28 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { normalizeTransactions } from '@/lib/normalize-transactions'
-import type { ColumnMapping } from '@/lib/normalize-transactions'
-import type { ParsedRow } from '@/lib/parse-file'
+import type { NormalizedTransaction } from '@/lib/normalize-transactions'
 
 interface ImportBody {
-  mapping: ColumnMapping
-  rows: ParsedRow[]
+  transactions: NormalizedTransaction[]
+}
+
+function isValidTransaction(t: unknown): t is NormalizedTransaction {
+  if (!t || typeof t !== 'object') return false
+  const o = t as Record<string, unknown>
+  return (
+    typeof o.amount === 'number' &&
+    isFinite(o.amount) &&
+    (o.type === 'income' || o.type === 'expense') &&
+    typeof o.category === 'string' &&
+    typeof o.description === 'string' &&
+    typeof o.date === 'string'
+  )
 }
 
 export async function POST(req: Request) {
   const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-  }
+  if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
   let body: ImportBody
   try {
@@ -23,17 +31,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Cuerpo de solicitud inválido' }, { status: 400 })
   }
 
-  if (!body.mapping || !Array.isArray(body.rows) || body.rows.length === 0) {
-    return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
+  if (!Array.isArray(body.transactions) || body.transactions.length === 0) {
+    return NextResponse.json({ error: 'No se recibieron transacciones' }, { status: 400 })
   }
 
-  // Look up user profile in Supabase
-  const supabase = createServiceClient()
+  const validTx = body.transactions.filter(isValidTransaction)
+  if (validTx.length === 0) {
+    return NextResponse.json({ error: 'Las transacciones no son válidas' }, { status: 400 })
+  }
 
-  console.log('[import] userId:', userId)
-  console.log('[import] SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-  console.log('[import] SERVICE_KEY present:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
-  console.log('[import] SERVICE_KEY prefix:', process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 20))
+  const supabase = createServiceClient()
 
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
@@ -41,79 +48,51 @@ export async function POST(req: Request) {
     .eq('clerk_id', userId)
     .single()
 
-  console.log('[import] SELECT profile → data:', profile, '| error:', JSON.stringify(profileError))
+  let profileId: string | null = profile?.id ?? null
 
-  if (profileError || !profile) {
-    // If no profile exists, auto-create one (for users who skipped webhook setup)
+  if (!profileId) {
+    // Auto-create profile if webhook hasn't fired yet
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: newProfile, error: createError } = await (supabase.from('profiles') as any)
       .insert({ clerk_id: userId, email: `${userId}@pending.local`, currency: 'EUR' })
       .select('id')
       .single()
 
-    console.log('[import] INSERT profile → data:', newProfile, '| error:', JSON.stringify(createError))
-
     if (createError || !newProfile) {
       return NextResponse.json(
         {
           error: 'No se pudo encontrar o crear el perfil de usuario',
-          debug: {
-            selectError: profileError,
-            insertError: createError,
-            userId,
-          },
+          debug: { selectError: profileError, insertError: createError },
         },
         { status: 500 }
       )
     }
-
-    return await insertTransactions(supabase, (newProfile as { id: string }).id, body)
+    profileId = (newProfile as { id: string }).id
   }
 
-  return await insertTransactions(supabase, (profile as { id: string }).id, body)
-}
-
-async function insertTransactions(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  profileId: string,
-  body: ImportBody
-): Promise<NextResponse> {
-  const normalized = normalizeTransactions(body.rows, body.mapping)
-
-  if (normalized.length === 0) {
-    return NextResponse.json(
-      { error: 'No se encontraron transacciones válidas en el archivo' },
-      { status: 422 }
-    )
-  }
-
-  // Batch-insert in chunks of 500 to avoid request size limits
   const CHUNK = 500
   let inserted = 0
 
-  for (let i = 0; i < normalized.length; i += CHUNK) {
-    const chunk = normalized.slice(i, i + CHUNK).map((tx) => ({
-      profile_id: profileId,
-      amount: tx.amount,
-      type: tx.type,
-      category: tx.category,
+  for (let i = 0; i < validTx.length; i += CHUNK) {
+    const chunk = validTx.slice(i, i + CHUNK).map((tx) => ({
+      profile_id:  profileId!,
+      amount:      tx.amount,
+      type:        tx.type,
+      category:    tx.category,
       description: tx.description,
-      date: tx.date,
+      date:        tx.date,
     }))
 
     const { error } = await supabase.from('transactions').insert(chunk)
-
     if (error) {
-      console.error('Supabase insert error:', error)
+      console.error('[import] Supabase insert error:', error)
       return NextResponse.json(
         { error: `Error al guardar las transacciones: ${error.message}` },
         { status: 500 }
       )
     }
-
     inserted += chunk.length
   }
 
-  return NextResponse.json({ inserted, total: normalized.length })
+  return NextResponse.json({ inserted, total: validTx.length })
 }

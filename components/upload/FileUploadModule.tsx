@@ -7,57 +7,47 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   AlertCircle,
-  ChevronDown,
   Loader2,
   ArrowRight,
   RefreshCw,
+  Sparkles,
+  ArrowUpCircle,
+  ArrowDownCircle,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import type { ColumnMapping } from '@/lib/normalize-transactions'
+import { cn, formatCurrency } from '@/lib/utils'
+import type { NormalizedTransaction } from '@/lib/normalize-transactions'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 interface AnalyzeResult {
-  mapping: ColumnMapping
-  columns: string[]
-  sampleRows: Record<string, string>[]
-  allRows: Record<string, string>[]
-  totalRows: number
   filename: string
+  totalRows: number
+  totalTransactions: number
+  preview: NormalizedTransaction[]
+  transactions: NormalizedTransaction[]
+  warnings: string[]
 }
 
-type Step = 'idle' | 'analyzing' | 'mapping' | 'importing' | 'success' | 'error'
+type Step = 'idle' | 'analyzing' | 'preview' | 'importing' | 'success' | 'error'
 
-const FIELD_LABELS: Record<string, string> = {
-  fecha: 'Fecha',
-  concepto: 'Concepto / Descripción',
-  monto: 'Importe',
-  monto_debito: 'Débito / Pago',
-  monto_credito: 'Crédito / Cobro',
-  tipo: 'Tipo (Ingreso/Gasto)',
-  categoria: 'Categoría',
-}
-
-const CONFIDENCE_CONFIG = {
-  alto:  { label: 'Alta confianza',  classes: 'bg-brand-50 text-brand-700' },
-  medio: { label: 'Confianza media', classes: 'bg-amber-50 text-amber-700' },
-  bajo:  { label: 'Baja confianza',  classes: 'bg-red-50 text-red-600' },
-}
-
-// ── Main component ─────────────────────────────────────────────────────────────
 export default function FileUploadModule() {
   const router = useRouter()
   const [step, setStep] = useState<Step>('idle')
   const [isDragging, setIsDragging] = useState(false)
-  const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResult | null>(null)
-  const [mapping, setMapping] = useState<ColumnMapping | null>(null)
+  const [result, setResult] = useState<AnalyzeResult | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [insertedCount, setInsertedCount] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // ── Upload & analyze ────────────────────────────────────────────────────────
+  const reset = () => {
+    setStep('idle')
+    setResult(null)
+    setErrorMessage('')
+    setInsertedCount(0)
+  }
+
   const handleFile = useCallback(async (file: File) => {
     setStep('analyzing')
     setErrorMessage('')
+    setResult(null)
 
     const formData = new FormData()
     formData.append('file', file)
@@ -67,30 +57,29 @@ export default function FileUploadModule() {
       const data = await res.json()
 
       if (!res.ok) {
-        setErrorMessage(data.error ?? 'Error desconocido al analizar el archivo.')
+        setErrorMessage(data.error ?? 'Error al analizar el archivo.')
         setStep('error')
         return
       }
 
-      setAnalyzeResult(data as AnalyzeResult)
-      setMapping((data as AnalyzeResult).mapping)
-      setStep('mapping')
+      setResult(data as AnalyzeResult)
+      setStep('preview')
     } catch {
       setErrorMessage('Error de red. Verifica tu conexión e inténtalo de nuevo.')
       setStep('error')
     }
   }, [])
 
-  // ── Import ──────────────────────────────────────────────────────────────────
-  const handleImport = useCallback(async () => {
-    if (!analyzeResult || !mapping) return
+  const handleConfirm = useCallback(async () => {
+    if (!result) return
     setStep('importing')
+    setErrorMessage('')
 
     try {
       const res = await fetch('/api/upload/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mapping, rows: analyzeResult.allRows }),
+        body: JSON.stringify({ transactions: result.transactions }),
       })
       const data = await res.json()
 
@@ -102,15 +91,13 @@ export default function FileUploadModule() {
 
       setInsertedCount(data.inserted as number)
       setStep('success')
-      // Redirigir al dashboard para que los Server Components refresquen con los datos nuevos
-      router.push('/dashboard')
+      setTimeout(() => router.push('/dashboard'), 1200)
     } catch {
       setErrorMessage('Error de red durante la importación.')
       setStep('error')
     }
-  }, [analyzeResult, mapping])
+  }, [result, router])
 
-  // ── Drag & drop ─────────────────────────────────────────────────────────────
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
@@ -121,15 +108,7 @@ export default function FileUploadModule() {
     [handleFile]
   )
 
-  const reset = () => {
-    setStep('idle')
-    setAnalyzeResult(null)
-    setMapping(null)
-    setErrorMessage('')
-    setInsertedCount(0)
-  }
-
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── idle ─────────────────────────────────────────────────────────────────
   if (step === 'idle') {
     return (
       <div
@@ -149,42 +128,56 @@ export default function FileUploadModule() {
           type="file"
           accept=".xlsx,.xls,.csv,.ods"
           className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) handleFile(f)
+            e.target.value = ''
+          }}
         />
-        <UploadCloud className={cn('w-12 h-12 mx-auto mb-4', isDragging ? 'text-brand-500' : 'text-gray-300')} />
+        <UploadCloud
+          className={cn(
+            'w-12 h-12 mx-auto mb-4',
+            isDragging ? 'text-brand-500' : 'text-gray-300'
+          )}
+        />
         <p className="text-base font-semibold text-gray-700 mb-1">
           Arrastra tu archivo aquí o{' '}
           <span className="text-brand-600 underline underline-offset-2">selecciona uno</span>
         </p>
         <p className="text-sm text-gray-400">
-          Soporta .xlsx · .xls · .csv · .ods · máx. 10 MB
+          Claude detectará las columnas automáticamente · .xlsx · .xls · .csv · .ods · máx. 10 MB
         </p>
       </div>
     )
   }
 
+  // ── analyzing ────────────────────────────────────────────────────────────
   if (step === 'analyzing') {
     return (
       <div className="border border-gray-100 rounded-2xl p-12 text-center bg-white shadow-sm">
         <Loader2 className="w-10 h-10 mx-auto mb-4 text-brand-500 animate-spin" />
         <p className="font-semibold text-gray-800 mb-1">Analizando archivo…</p>
-        <p className="text-sm text-gray-400">Claude está detectando las columnas automáticamente</p>
+        <p className="text-sm text-gray-400">
+          Claude está leyendo las columnas, evaluando fórmulas e infiriendo categorías
+        </p>
       </div>
     )
   }
 
+  // ── importing ────────────────────────────────────────────────────────────
   if (step === 'importing') {
     return (
       <div className="border border-gray-100 rounded-2xl p-12 text-center bg-white shadow-sm">
         <Loader2 className="w-10 h-10 mx-auto mb-4 text-brand-500 animate-spin" />
         <p className="font-semibold text-gray-800 mb-1">Importando transacciones…</p>
         <p className="text-sm text-gray-400">
-          Guardando {analyzeResult?.totalRows} filas en Supabase
+          Guardando {result?.totalTransactions} transacciones
         </p>
       </div>
     )
   }
 
+  // ── success ──────────────────────────────────────────────────────────────
   if (step === 'success') {
     return (
       <div className="border border-brand-100 rounded-2xl p-12 text-center bg-brand-50 shadow-sm">
@@ -200,6 +193,7 @@ export default function FileUploadModule() {
     )
   }
 
+  // ── error ────────────────────────────────────────────────────────────────
   if (step === 'error') {
     return (
       <div className="border border-red-100 rounded-2xl p-10 bg-white shadow-sm">
@@ -220,110 +214,107 @@ export default function FileUploadModule() {
     )
   }
 
-  // step === 'mapping'
-  if (!analyzeResult || !mapping) return null
-
-  const conf = CONFIDENCE_CONFIG[mapping.confidence]
-  const columnsForSelect = ['(ninguna)', ...analyzeResult.columns]
-
-  const updateMapping = (field: keyof ColumnMapping, value: string) => {
-    setMapping((prev) => prev ? { ...prev, [field]: value === '(ninguna)' ? null : value } : prev)
-  }
-
-  const keyFields: (keyof ColumnMapping)[] = [
-    'fecha', 'concepto', 'monto', 'monto_debito', 'monto_credito', 'tipo', 'categoria',
-  ]
+  // ── preview ──────────────────────────────────────────────────────────────
+  if (!result) return null
 
   return (
     <div className="space-y-5">
-      {/* File info + confidence */}
+      {/* File summary */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center shrink-0">
             <FileSpreadsheet className="w-5 h-5 text-brand-600" />
           </div>
           <div>
-            <p className="font-semibold text-gray-800 text-sm">{analyzeResult.filename}</p>
+            <p className="font-semibold text-gray-800 text-sm">{result.filename}</p>
             <p className="text-xs text-gray-400 mt-0.5">
-              {analyzeResult.totalRows} filas · {analyzeResult.columns.length} columnas
+              {result.totalRows} filas leídas ·{' '}
+              <span className="font-semibold text-brand-700">{result.totalTransactions}</span>{' '}
+              transacciones detectadas
             </p>
           </div>
         </div>
-        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${conf.classes}`}>
-          {conf.label}
+        <span className="flex items-center gap-1.5 text-xs font-semibold bg-brand-50 text-brand-700 px-2.5 py-1 rounded-full">
+          <Sparkles className="w-3 h-3" />
+          Detectadas por Claude
         </span>
       </div>
 
-      {/* Notas de Claude */}
-      {mapping.notas && (
-        <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
-          <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-700">{mapping.notas}</p>
+      {/* Warnings */}
+      {result.warnings.length > 0 && (
+        <div className="space-y-2">
+          {result.warnings.map((w, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3"
+            >
+              <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700 leading-relaxed">{w}</p>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Column mapping */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-        <div className="px-5 py-4 border-b border-gray-50">
-          <h2 className="font-semibold text-gray-900">Mapeo de columnas</h2>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Claude detectó automáticamente las columnas. Corrígelas si es necesario.
-          </p>
-        </div>
-        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {keyFields.map((field) => {
-            const currentVal = (mapping[field] as string | null) ?? '(ninguna)'
-            return (
-              <div key={field}>
-                <label className="text-xs font-medium text-gray-500 block mb-1.5">
-                  {FIELD_LABELS[field]}
-                </label>
-                <div className="relative">
-                  <select
-                    value={currentVal}
-                    onChange={(e) => updateMapping(field, e.target.value)}
-                    className="w-full appearance-none pl-3 pr-8 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-300 text-gray-800"
-                  >
-                    {columnsForSelect.map((col) => (
-                      <option key={col} value={col}>{col}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Sample data preview */}
+      {/* Preview table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-50">
-          <h2 className="font-semibold text-gray-900">Vista previa de datos</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Primeras 5 filas del archivo</p>
+          <h2 className="font-semibold text-gray-900">Vista previa — primeras 5 transacciones</h2>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Revisa los datos antes de confirmar la importación
+          </p>
         </div>
         <div className="overflow-x-auto scrollbar-hide">
-          <table className="w-full text-xs">
+          <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-50">
-                {analyzeResult.columns.map((col) => (
+              <tr className="border-b border-gray-50 bg-gray-50/50">
+                {['Fecha', 'Descripción', 'Categoría', 'Tipo', 'Importe'].map((h) => (
                   <th
-                    key={col}
-                    className="px-4 py-2.5 text-left font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap"
+                    key={h}
+                    className="px-4 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide"
                   >
-                    {col}
+                    {h}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {analyzeResult.sampleRows.slice(0, 5).map((row, i) => (
+              {result.preview.map((tx, i) => (
                 <tr key={i} className="hover:bg-gray-50/50">
-                  {analyzeResult.columns.map((col) => (
-                    <td key={col} className="px-4 py-2.5 text-gray-600 whitespace-nowrap max-w-[200px] truncate">
-                      {row[col] ?? ''}
-                    </td>
-                  ))}
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                    {new Date(tx.date).toLocaleDateString('es-ES', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </td>
+                  <td className="px-4 py-3 text-gray-800 font-medium max-w-xs truncate">
+                    {tx.description}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                      {tx.category}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {tx.type === 'income' ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700">
+                        <ArrowUpCircle className="w-3.5 h-3.5" /> Ingreso
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600">
+                        <ArrowDownCircle className="w-3.5 h-3.5" /> Gasto
+                      </span>
+                    )}
+                  </td>
+                  <td
+                    className={cn(
+                      'px-4 py-3 font-semibold whitespace-nowrap',
+                      tx.type === 'income' ? 'text-brand-700' : 'text-gray-900'
+                    )}
+                  >
+                    {tx.type === 'income' ? '+' : '−'}
+                    {formatCurrency(tx.amount)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -337,17 +328,19 @@ export default function FileUploadModule() {
           onClick={reset}
           className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
         >
-          ← Cambiar archivo
+          ← Cancelar y subir otro archivo
         </button>
         <div className="flex items-center gap-3">
           <p className="text-xs text-gray-400">
-            Se importarán <span className="font-semibold text-gray-700">{analyzeResult.totalRows}</span> filas
+            Se importarán{' '}
+            <span className="font-semibold text-gray-700">{result.totalTransactions}</span>{' '}
+            transacciones
           </p>
           <button
-            onClick={handleImport}
+            onClick={handleConfirm}
             className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm"
           >
-            Importar transacciones <ArrowRight className="w-4 h-4" />
+            Confirmar importación <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       </div>

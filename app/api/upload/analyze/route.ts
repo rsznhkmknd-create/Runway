@@ -2,63 +2,60 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { anthropic } from '@/lib/claude'
 import { parseUploadedFile } from '@/lib/parse-file'
-import type { ColumnMapping } from '@/lib/normalize-transactions'
-
-const ALLOWED_TYPES = [
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
-  'application/vnd.ms-excel', // xls
-  'text/csv',
-  'application/csv',
-  'application/vnd.oasis.opendocument.spreadsheet', // ods
-  'application/octet-stream', // fallback
-]
+import {
+  normalizeTransactions,
+  type ColumnMapping,
+  type NormalizedTransaction,
+} from '@/lib/normalize-transactions'
+import { inferCategoriesFromDescriptions } from '@/lib/infer-categories'
 
 const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.ods']
+const MAX_SIZE = 10 * 1024 * 1024
 
-const SYSTEM_PROMPT = `Eres un experto en análisis de datos financieros. Tu tarea es analizar columnas y datos de muestra de archivos financieros (hojas de cálculo o CSV) e identificar qué columna corresponde a cada campo del sistema.
+const SYSTEM_PROMPT = `Eres un experto en análisis de datos financieros. Analizas archivos Excel/CSV con transacciones bancarias o contables y detectas la estructura independientemente de cómo estén nombradas las columnas (español, inglés, siglas, sin encabezado) o en qué orden aparezcan.
 
-RESPONDE ÚNICAMENTE CON JSON VÁLIDO. Sin explicaciones, sin markdown, sin texto adicional.`
+RESPONDE ÚNICAMENTE CON JSON VÁLIDO. Sin explicaciones, sin markdown.`
 
 function buildUserPrompt(columns: string[], sampleRows: Record<string, string>[]): string {
-  return `Analiza estas columnas y datos de un archivo financiero. Identifica qué columna contiene cada dato.
+  return `Analiza este archivo financiero y devuelve el mapeo de columnas.
 
-COLUMNAS DISPONIBLES:
+COLUMNAS (pueden ser genéricas tipo "Columna 1" si el archivo no tenía cabeceras):
 ${JSON.stringify(columns)}
 
-PRIMERAS ${sampleRows.length} FILAS DE DATOS:
+PRIMERAS ${sampleRows.length} FILAS:
 ${JSON.stringify(sampleRows, null, 2)}
 
-Responde SOLO con este JSON exacto (sin markdown, sin texto extra):
+Responde SOLO con este JSON (sin markdown):
 {
-  "fecha": "nombre_columna_exacto_o_null",
-  "concepto": "nombre_columna_exacto_o_null",
-  "monto": "nombre_columna_si_hay_una_sola_columna_de_importe_o_null",
-  "monto_debito": "nombre_columna_de_debitos_o_pagos_o_null",
-  "monto_credito": "nombre_columna_de_creditos_o_cobros_o_null",
-  "tipo": "nombre_columna_explicita_de_tipo_o_null",
-  "tipo_metodo": "columna_explicita|signo_positivo_es_ingreso|signo_positivo_es_gasto|debito_credito",
-  "tipo_valores_ingreso": ["lista de valores del tipo que significan ingreso, cobro, etc."],
-  "tipo_valores_gasto": ["lista de valores del tipo que significan gasto, pago, etc."],
-  "categoria": "nombre_columna_exacto_o_null",
+  "fecha": "nombre_columna_o_null_si_no_existe",
+  "concepto": "nombre_columna_de_descripción_o_null",
+  "monto": "nombre_columna_de_importe_único_o_null",
+  "monto_debito": "nombre_columna_de_débitos_o_null",
+  "monto_credito": "nombre_columna_de_créditos_o_null",
+  "tipo": "nombre_columna_explícita_de_tipo_o_null",
+  "tipo_metodo": "columna_explicita|signo_positivo_es_ingreso|signo_positivo_es_gasto|debito_credito|descripcion_keywords",
+  "tipo_valores_ingreso": ["valores del tipo que significan ingreso"],
+  "tipo_valores_gasto": ["valores del tipo que significan gasto"],
+  "categoria": "nombre_columna_categoría_o_null",
   "confidence": "alto|medio|bajo",
-  "moneda_detectada": "EUR|MXN|USD|COP|ARS|desconocida",
-  "notas": "observaciones breves sobre el archivo"
+  "moneda_detectada": "EUR|MXN|USD|COP|ARS|CLP|GBP|desconocida",
+  "notas": "una frase breve sobre el archivo"
 }
 
 REGLAS:
-- Usa EXACTAMENTE el nombre de la columna tal como aparece en la lista
-- Si hay columnas separadas para débito/crédito (debe/haber, pagos/cobros), usa monto_debito y monto_credito, pon monto como null y tipo_metodo como "debito_credito"
-- Si el tipo se detecta por el signo del monto (positivo/negativo), tipo es null
-- Si hay una columna explícita con valores como "ingreso/gasto", "C/P", "cobro/pago", usa tipo con tipo_metodo "columna_explicita"
-- confidence "bajo" si hay datos inconsistentes o columnas ambiguas
-- tipo_valores_ingreso y tipo_valores_gasto deben incluir todas las variantes posibles que encuentres en los datos`
+- Usa EXACTAMENTE el nombre de columna tal como aparece en la lista.
+- Si no hay columna de fecha, pon "fecha": null. Se usará la fecha de importación.
+- Si no hay categoría, pon "categoria": null. Se inferirá después.
+- Si hay débito/crédito separados (debe/haber, pagos/cobros), usa monto_debito + monto_credito con tipo_metodo "debito_credito".
+- Si el signo del monto indica el tipo, usa "signo_positivo_es_ingreso" o "signo_positivo_es_gasto".
+- Si no se detecta un método claro pero hay descripción, usa "descripcion_keywords".
+- Acepta nombres en ESPAÑOL (fecha, importe, concepto, debe, haber, cargo, abono) e INGLÉS (date, amount, description, debit, credit, category).
+- El archivo es VÁLIDO si existe una columna de monto o un par débito/crédito. La fecha es opcional.`
 }
 
 export async function POST(req: Request) {
   const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-  }
+  if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
   let formData: FormData
   try {
@@ -72,7 +69,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'No se recibió ningún archivo' }, { status: 400 })
   }
 
-  // Validate extension
   const filename = file.name.toLowerCase()
   const hasValidExt = ALLOWED_EXTENSIONS.some((ext) => filename.endsWith(ext))
   if (!hasValidExt) {
@@ -82,50 +78,37 @@ export async function POST(req: Request) {
     )
   }
 
-  // Validate size (10MB max)
-  if (file.size > 10 * 1024 * 1024) {
+  if (file.size > MAX_SIZE) {
     return NextResponse.json({ error: 'El archivo supera el límite de 10MB' }, { status: 400 })
   }
 
+  // ── Parse ──────────────────────────────────────────────────────────────────
   let parsed
   try {
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
+    const buffer = Buffer.from(await file.arrayBuffer())
     parsed = parseUploadedFile(buffer, file.name)
   } catch (err) {
     return NextResponse.json(
-      { error: `No se pudo leer el archivo: ${err instanceof Error ? err.message : 'formato inválido'}` },
+      { error: err instanceof Error ? err.message : 'Formato inválido' },
       { status: 422 }
     )
   }
 
   if (parsed.rows.length === 0) {
-    return NextResponse.json({ error: 'El archivo está vacío o no contiene datos' }, { status: 422 })
-  }
-
-  if (parsed.columns.length < 2) {
     return NextResponse.json(
-      { error: 'El archivo no tiene suficientes columnas para reconocer datos financieros' },
+      { error: 'El archivo no contiene filas con datos.' },
       { status: 422 }
     )
   }
 
-  // Send up to 15 sample rows to Claude for analysis
+  // ── Ask Claude to identify the structure ───────────────────────────────────
   const sampleRows = parsed.rows.slice(0, 15)
-
-  // Debug: log parsed content before sending to Claude
   const userPrompt = buildUserPrompt(parsed.columns, sampleRows)
-  console.log('[analyze] filename:', file.name, '| size:', file.size, 'bytes')
-  console.log('[analyze] columns:', parsed.columns)
-  console.log('[analyze] rows parsed:', parsed.rows.length)
-  console.log('[analyze] prompt first 500 chars:', userPrompt.slice(0, 500))
-  console.log('[analyze] ANTHROPIC_API_KEY present:', !!process.env.ANTHROPIC_API_KEY)
-  console.log('[analyze] ANTHROPIC_API_KEY prefix:', process.env.ANTHROPIC_API_KEY?.slice(0, 15))
 
   let mapping: ColumnMapping
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-opus-4-6',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userPrompt }],
@@ -136,45 +119,70 @@ export async function POST(req: Request) {
       .map((b) => (b as { type: 'text'; text: string }).text)
       .join('')
 
-    console.log('[analyze] Claude raw response:', text.slice(0, 300))
-
-    // Strip potential markdown fences
     const jsonStr = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim()
     mapping = JSON.parse(jsonStr) as ColumnMapping
-    console.log('[analyze] mapping parsed OK:', JSON.stringify(mapping))
   } catch (err) {
-    console.error('[analyze] Claude error full:', err)
-    const errMsg = err instanceof Error ? err.message : String(err)
+    console.error('[analyze] Claude error:', err)
     return NextResponse.json(
-      {
-        error: 'No se pudo analizar el archivo automáticamente. Por favor verifica que contiene datos financieros.',
-        debug: { claudeError: errMsg },
-      },
+      { error: 'No se pudo analizar el archivo. Inténtalo de nuevo en un momento.' },
       { status: 422 }
     )
   }
 
-  // Validate that Claude found at least fecha + monto (or debit/credit)
-  const hasFecha = !!mapping.fecha
-  const hasMonto =
-    !!mapping.monto || (!!mapping.monto_debito && !!mapping.monto_credito)
-
-  if (!hasFecha || !hasMonto) {
+  // ── Validate that we can extract amounts ───────────────────────────────────
+  const hasMonto = !!mapping.monto || (!!mapping.monto_debito && !!mapping.monto_credito)
+  if (!hasMonto) {
     return NextResponse.json(
       {
         error:
-          'No se detectaron columnas de fecha e importe en el archivo. Verifica que el archivo contiene transacciones financieras.',
+          'Este archivo no parece contener datos financieros. No se detectó ninguna columna de importe.',
       },
       { status: 422 }
     )
   }
 
+  // ── Normalize every row ────────────────────────────────────────────────────
+  const transactions: NormalizedTransaction[] = normalizeTransactions(parsed.rows, mapping)
+
+  if (transactions.length === 0) {
+    return NextResponse.json(
+      {
+        error:
+          'No se encontraron transacciones válidas en el archivo. Verifica que los montos son numéricos.',
+      },
+      { status: 422 }
+    )
+  }
+
+  const warnings = [...parsed.warnings]
+  if (!mapping.fecha) {
+    warnings.push('El archivo no tenía columna de fecha — se usó la fecha de hoy para todas las transacciones.')
+  }
+
+  // ── If no category column, infer via Claude from descriptions ──────────────
+  if (!mapping.categoria) {
+    try {
+      const descriptions = transactions.map((t) => t.description)
+      const categories = await inferCategoriesFromDescriptions(descriptions)
+      for (let i = 0; i < transactions.length; i++) {
+        if (categories[i]) transactions[i].category = categories[i]
+      }
+      warnings.push('Se infirieron categorías automáticamente a partir de las descripciones.')
+    } catch (err) {
+      console.error('[analyze] category inference failed:', err)
+      // keep 'Sin categoría' default
+    }
+  }
+
+  const preview = transactions.slice(0, 5)
+
   return NextResponse.json({
-    mapping,
-    columns: parsed.columns,
-    sampleRows,
-    allRows: parsed.rows,
-    totalRows: parsed.rows.length,
     filename: file.name,
+    totalRows: parsed.rows.length,
+    totalTransactions: transactions.length,
+    preview,
+    transactions,
+    mapping,
+    warnings,
   })
 }

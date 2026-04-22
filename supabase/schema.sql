@@ -78,6 +78,29 @@ create policy "invoices_own" on public.invoices
 
 create index idx_invoices_profile_status on public.invoices(profile_id, status);
 
+-- ── Reports ──────────────────────────────────────────────────
+create table public.reports (
+  id           uuid primary key default uuid_generate_v4(),
+  profile_id   uuid not null references public.profiles(id) on delete cascade,
+  type         text not null check (type in ('weekly','monthly')),
+  period_start date not null,
+  period_end   date not null,
+  content      jsonb not null,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.reports enable row level security;
+
+create policy "reports_own" on public.reports
+  for all using (
+    profile_id in (
+      select id from public.profiles
+      where clerk_id = current_setting('app.clerk_user_id', true)
+    )
+  );
+
+create index idx_reports_profile_created on public.reports(profile_id, created_at desc);
+
 -- ── Auto-update updated_at ────────────────────────────────────
 create or replace function update_updated_at()
 returns trigger language plpgsql as $$

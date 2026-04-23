@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Upload,
   FileBarChart,
+  Bell,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import FinsightLogo from '@/components/ui/FinsightLogo'
@@ -21,6 +22,7 @@ const navItems = [
   { href: '/dashboard/facturas',     label: 'Facturas',    icon: FileText },
   { href: '/dashboard/movimientos',  label: 'Movimientos', icon: ArrowLeftRight },
   { href: '/dashboard/reportes',     label: 'Reportes',    icon: FileBarChart },
+  { href: '/dashboard/alertas',      label: 'Alertas',     icon: Bell },
   { href: '/dashboard/importar',     label: 'Importar',    icon: Upload },
   { href: '/dashboard/ajustes',      label: 'Ajustes',     icon: Settings },
 ]

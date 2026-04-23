@@ -1,6 +1,6 @@
 import { UserButton } from '@clerk/nextjs'
-import { Bell } from 'lucide-react'
 import FinsightLogo from '@/components/ui/FinsightLogo'
+import BellBadge from '@/components/alerts/BellBadge'
 
 export default function Header() {
   return (
@@ -14,13 +14,7 @@ export default function Header() {
       </div>
 
       <div className="flex items-center gap-3 ml-auto">
-        <button
-          className="relative w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
-          aria-label="Notificaciones"
-        >
-          <Bell className="w-4.5 h-4.5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand-500 rounded-full" />
-        </button>
+        <BellBadge />
 
         <UserButton
           appearance={{

@@ -115,25 +115,25 @@ export default async function BurnRatePage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Burn Rate</h1>
-        <p className="text-gray-500 mt-1 text-sm">Gasto mensual operativo y su evolución</p>
+        <h1 className="text-2xl font-bold text-text-primary">Burn Rate</h1>
+        <p className="text-text-muted mt-1 text-sm">Gasto mensual operativo y su evolución</p>
       </div>
 
       {/* KPI row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Burn rate actual */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <div className="bg-surface rounded-2xl border border-border p-6 shadow-sm">
           <div className="flex items-center gap-2.5 mb-4">
             <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center">
               <Flame className="w-5 h-5 text-orange-500" />
             </div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            <p className="text-xs font-medium text-text-muted uppercase tracking-wide">
               Burn Rate actual
             </p>
           </div>
-          <p className="text-4xl font-extrabold text-gray-900 tracking-tight">
+          <p className="text-4xl font-extrabold text-text-primary tracking-tight">
             {formatCurrency(currentTotal)}
-            <span className="text-sm font-medium text-gray-400 ml-1">/mes</span>
+            <span className="text-sm font-medium text-text-muted ml-1">/mes</span>
           </p>
           <span
             className={`inline-flex items-center gap-1 mt-3 text-xs font-semibold px-2.5 py-1 rounded-full ${
@@ -150,36 +150,36 @@ export default async function BurnRatePage() {
         </div>
 
         {/* Promedio 6 meses */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <div className="bg-surface rounded-2xl border border-border p-6 shadow-sm">
           <div className="flex items-center gap-2.5 mb-4">
             <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
               <ArrowDownRight className="w-5 h-5 text-blue-500" />
             </div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            <p className="text-xs font-medium text-text-muted uppercase tracking-wide">
               Promedio 6 meses
             </p>
           </div>
-          <p className="text-4xl font-extrabold text-gray-900 tracking-tight">
+          <p className="text-4xl font-extrabold text-text-primary tracking-tight">
             {formatCurrency(avg6)}
-            <span className="text-sm font-medium text-gray-400 ml-1">/mes</span>
+            <span className="text-sm font-medium text-text-muted ml-1">/mes</span>
           </p>
-          <p className="text-sm text-gray-500 mt-3">Basado en los últimos 6 meses</p>
+          <p className="text-sm text-text-muted mt-3">Basado en los últimos 6 meses</p>
         </div>
 
         {/* Acumulado año actual */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <div className="bg-surface rounded-2xl border border-border p-6 shadow-sm">
           <div className="flex items-center gap-2.5 mb-4">
             <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
               <Flame className="w-5 h-5 text-purple-500" />
             </div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            <p className="text-xs font-medium text-text-muted uppercase tracking-wide">
               Acumulado {currentYear}
             </p>
           </div>
-          <p className="text-4xl font-extrabold text-gray-900 tracking-tight">
+          <p className="text-4xl font-extrabold text-text-primary tracking-tight">
             {formatCurrency(accumulated)}
           </p>
-          <p className="text-sm text-gray-500 mt-3">
+          <p className="text-sm text-text-muted mt-3">
             Ene –{' '}
             {now.toLocaleDateString('es-ES', { month: 'long' })} {currentYear}
           </p>
@@ -189,12 +189,12 @@ export default async function BurnRatePage() {
       {/* Breakdown + historic table */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Category breakdown */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-          <h2 className="font-semibold text-gray-900 mb-1">Desglose este mes</h2>
-          <p className="text-xs text-gray-400 mb-5 capitalize">{currentMonthLabel}</p>
+        <div className="bg-surface rounded-2xl border border-border p-6 shadow-sm">
+          <h2 className="font-semibold text-text-primary mb-1">Desglose este mes</h2>
+          <p className="text-xs text-text-muted mb-5 capitalize">{currentMonthLabel}</p>
 
           {categories.length === 0 ? (
-            <p className="text-sm text-gray-400 py-8 text-center">
+            <p className="text-sm text-text-muted py-8 text-center">
               Sin gastos registrados este mes
             </p>
           ) : (
@@ -202,16 +202,16 @@ export default async function BurnRatePage() {
               {categories.map((cat) => (
                 <div key={cat.label}>
                   <div className="flex justify-between text-sm mb-1.5">
-                    <span className="font-medium text-gray-700">{cat.label}</span>
-                    <span className="font-semibold text-gray-900">{formatCurrency(cat.amount)}</span>
+                    <span className="font-medium text-text-secondary">{cat.label}</span>
+                    <span className="font-semibold text-text-primary">{formatCurrency(cat.amount)}</span>
                   </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-2 bg-surface-2 rounded-full overflow-hidden">
                     <div
                       className={`h-full ${cat.color} rounded-full transition-all duration-500`}
                       style={{ width: `${cat.pct}%` }}
                     />
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">{cat.pct}% del total</p>
+                  <p className="text-xs text-text-muted mt-1">{cat.pct}% del total</p>
                 </div>
               ))}
             </div>
@@ -219,9 +219,9 @@ export default async function BurnRatePage() {
         </div>
 
         {/* Monthly history */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-          <h2 className="font-semibold text-gray-900 mb-1">Histórico mensual</h2>
-          <p className="text-xs text-gray-400 mb-5">Últimos 6 meses</p>
+        <div className="bg-surface rounded-2xl border border-border p-6 shadow-sm">
+          <h2 className="font-semibold text-text-primary mb-1">Histórico mensual</h2>
+          <p className="text-xs text-text-muted mb-5">Últimos 6 meses</p>
           <div className="space-y-2">
             {[...monthlyData].reverse().map((row, i) => {
               const prev = [...monthlyData].reverse()[i + 1]
@@ -229,9 +229,9 @@ export default async function BurnRatePage() {
               return (
                 <div
                   key={row.month}
-                  className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0"
+                  className="flex items-center justify-between py-2.5 border-b border-border last:border-0"
                 >
-                  <span className="text-sm font-medium text-gray-700 capitalize">{row.month}</span>
+                  <span className="text-sm font-medium text-text-secondary capitalize">{row.month}</span>
                   <div className="flex items-center gap-3">
                     {prev && (
                       <span
@@ -242,7 +242,7 @@ export default async function BurnRatePage() {
                         {diff > 0 ? '+' : ''}{formatCurrency(diff)}
                       </span>
                     )}
-                    <span className="text-sm font-semibold text-gray-900 w-24 text-right">
+                    <span className="text-sm font-semibold text-text-primary w-24 text-right">
                       {formatCurrency(row.total)}
                     </span>
                   </div>
@@ -260,15 +260,15 @@ function EmptyState() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Burn Rate</h1>
-        <p className="text-gray-500 mt-1 text-sm">Gasto mensual operativo y su evolución</p>
+        <h1 className="text-2xl font-bold text-text-primary">Burn Rate</h1>
+        <p className="text-text-muted mt-1 text-sm">Gasto mensual operativo y su evolución</p>
       </div>
       <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/50 px-8 py-16 text-center">
         <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-brand-100 flex items-center justify-center">
           <Flame className="w-6 h-6 text-brand-600" />
         </div>
-        <h2 className="text-lg font-bold text-gray-900 mb-2">Sin datos de gasto todavía</h2>
-        <p className="text-sm text-gray-500 max-w-xs mx-auto leading-relaxed mb-6">
+        <h2 className="text-lg font-bold text-text-primary mb-2">Sin datos de gasto todavía</h2>
+        <p className="text-sm text-text-muted max-w-xs mx-auto leading-relaxed mb-6">
           Importa tus transacciones para ver la evolución de tu burn rate por categoría.
         </p>
         <Link

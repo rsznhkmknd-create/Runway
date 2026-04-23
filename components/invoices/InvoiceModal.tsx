@@ -221,16 +221,16 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
       onClick={handleClose}
     >
       <div
-        className="w-full max-w-lg bg-white rounded-2xl shadow-xl max-h-[90vh] flex flex-col"
+        className="w-full max-w-lg bg-surface rounded-2xl shadow-xl max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900 text-lg">Nueva factura</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="font-semibold text-text-primary text-lg">Nueva factura</h2>
           <button
             onClick={handleClose}
             disabled={saving || extracting}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-40"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-secondary hover:bg-surface-2 transition-colors disabled:opacity-40"
             aria-label="Cerrar"
           >
             <X className="w-4 h-4" />
@@ -238,7 +238,7 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
         </div>
 
         {/* Tabs */}
-        <div className="flex px-6 pt-4 gap-1 border-b border-gray-100">
+        <div className="flex px-6 pt-4 gap-1 border-b border-border">
           {([
             { id: 'manual', label: 'Manual',       Icon: FilePlus },
             { id: 'upload', label: 'Subir archivo', Icon: Upload },
@@ -251,7 +251,7 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
                 'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 -mb-px transition-colors',
                 tab === id
                   ? 'border-brand-600 text-brand-700'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  : 'border-transparent text-text-muted hover:text-text-secondary'
               )}
             >
               <Icon className="w-4 h-4" />
@@ -277,15 +277,15 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={onDrop}
                     onClick={() => fileInput.current?.click()}
-                    className="cursor-pointer rounded-xl border-2 border-dashed border-gray-200 hover:border-brand-400 hover:bg-brand-50/30 px-6 py-10 text-center transition-colors"
+                    className="cursor-pointer rounded-xl border-2 border-dashed border-border hover:border-brand-400 hover:bg-brand-50/30 px-6 py-10 text-center transition-colors"
                   >
                     <div className="mx-auto w-12 h-12 rounded-xl bg-brand-50 flex items-center justify-center mb-3">
                       <Upload className="w-5 h-5 text-brand-600" />
                     </div>
-                    <p className="text-sm font-semibold text-gray-900">
+                    <p className="text-sm font-semibold text-text-primary">
                       Arrastra una factura o haz clic para buscar
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">PDF, PNG, JPG · máx. 10MB</p>
+                    <p className="text-xs text-text-muted mt-1">PDF, PNG, JPG · máx. 10MB</p>
                   </div>
                   <input
                     ref={fileInput}
@@ -298,9 +298,9 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
                       e.target.value = ''
                     }}
                   />
-                  <div className="mt-4 flex items-start gap-2 bg-gray-50 rounded-xl px-4 py-3">
+                  <div className="mt-4 flex items-start gap-2 bg-surface-2 rounded-xl px-4 py-3">
                     <Sparkles className="w-4 h-4 text-brand-600 mt-0.5 shrink-0" />
-                    <p className="text-xs text-gray-600 leading-relaxed">
+                    <p className="text-xs text-text-secondary leading-relaxed">
                       Claude extraerá automáticamente cliente, importe, fecha y número de factura.
                       Podrás revisarlos antes de guardar.
                     </p>
@@ -322,7 +322,7 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
               )}
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <label className="block text-xs font-medium text-text-secondary mb-1.5">
                   Nombre del cliente
                 </label>
                 <input
@@ -330,13 +330,13 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
                   value={form.client_name}
                   onChange={(e) => update('client_name', e.target.value)}
                   placeholder="Ej. Acme Corp"
-                  className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
+                  className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl bg-surface-2 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
                 />
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  <label className="block text-xs font-medium text-text-secondary mb-1.5">
                     Monto
                   </label>
                   <input
@@ -346,17 +346,17 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
                     value={form.amount}
                     onChange={(e) => update('amount', e.target.value)}
                     placeholder="0.00"
-                    className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
+                    className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl bg-surface-2 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  <label className="block text-xs font-medium text-text-secondary mb-1.5">
                     Moneda
                   </label>
                   <select
                     value={form.currency}
                     onChange={(e) => update('currency', e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors appearance-none cursor-pointer"
+                    className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl bg-surface-2 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors appearance-none cursor-pointer"
                   >
                     {CURRENCIES.map((c) => (
                       <option key={c} value={c}>{c}</option>
@@ -366,19 +366,19 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <label className="block text-xs font-medium text-text-secondary mb-1.5">
                   Fecha de vencimiento
                 </label>
                 <input
                   type="date"
                   value={form.due_date}
                   onChange={(e) => update('due_date', e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
+                  className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl bg-surface-2 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <label className="block text-xs font-medium text-text-secondary mb-1.5">
                   Estado
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -391,7 +391,7 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
                         'px-3 py-2 text-sm font-medium rounded-xl border-2 transition-colors',
                         form.status === opt.value
                           ? 'border-brand-500 bg-brand-50 text-brand-700'
-                          : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-200'
+                          : 'border-border bg-surface-2 text-text-secondary hover:border-border'
                       )}
                     >
                       {opt.label}
@@ -412,12 +412,12 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
 
         {/* Footer */}
         {showForm && (
-          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100">
+          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
             <button
               type="button"
               onClick={handleClose}
               disabled={saving}
-              className="px-4 py-2.5 text-sm font-medium text-gray-600 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-40"
+              className="px-4 py-2.5 text-sm font-medium text-text-secondary rounded-xl hover:bg-surface-2 transition-colors disabled:opacity-40"
             >
               Cancelar
             </button>

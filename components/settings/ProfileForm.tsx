@@ -58,7 +58,7 @@ export default function ProfileForm({ initial, email, onChange }: Props) {
       />
 
       <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1.5">
+        <label className="block text-xs font-medium text-text-secondary mb-1.5">
           Nombre completo
         </label>
         <input
@@ -66,20 +66,20 @@ export default function ProfileForm({ initial, email, onChange }: Props) {
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           placeholder="Ej. Fernando González"
-          className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
+          className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl bg-surface-2 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1.5">Email</label>
+        <label className="block text-xs font-medium text-text-secondary mb-1.5">Email</label>
         <input
           type="email"
           value={email}
           disabled
           readOnly
-          className="w-full px-3.5 py-2.5 text-sm border border-gray-100 rounded-xl bg-gray-50 text-gray-400 cursor-not-allowed"
+          className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl bg-surface-2 text-text-muted cursor-not-allowed"
         />
-        <p className="text-xs text-gray-400 mt-1.5">
+        <p className="text-xs text-text-muted mt-1.5">
           El email se gestiona desde tu cuenta de Clerk.
         </p>
       </div>
@@ -90,7 +90,7 @@ export default function ProfileForm({ initial, email, onChange }: Props) {
         </p>
       )}
 
-      <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
+      <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
         <button
           type="button"
           onClick={handleSave}

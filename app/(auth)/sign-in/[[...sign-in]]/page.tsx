@@ -10,14 +10,14 @@ export default function SignInPage({ searchParams }: Props) {
   const expired = searchParams.expired === '1'
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-surface-2 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
             <FinsightLogo size={36} />
-            <span className="font-semibold text-gray-900 text-xl">Finsight</span>
+            <span className="font-semibold text-text-primary text-xl">Finsight</span>
           </div>
-          <p className="text-gray-500 text-sm">Accede a tu dashboard financiero</p>
+          <p className="text-text-muted text-sm">Accede a tu dashboard financiero</p>
         </div>
 
         {expired && (
@@ -36,8 +36,8 @@ export default function SignInPage({ searchParams }: Props) {
           appearance={{
             elements: {
               rootBox: 'w-full',
-              card: 'shadow-sm border border-gray-200 rounded-2xl',
-              headerTitle: 'text-gray-900 font-semibold',
+              card: 'shadow-sm border border-border rounded-2xl',
+              headerTitle: 'text-text-primary font-semibold',
               formButtonPrimary:
                 'bg-brand-600 hover:bg-brand-700 text-white font-semibold',
               footerActionLink: 'text-brand-600 hover:text-brand-700 font-medium',

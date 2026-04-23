@@ -27,13 +27,13 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload?.length) return null
 
   return (
-    <div className="bg-white border border-gray-100 shadow-lg rounded-xl px-4 py-3 text-sm">
-      <p className="font-semibold text-gray-700 mb-2">{label}</p>
+    <div className="bg-surface border border-border shadow-lg rounded-xl px-4 py-3 text-sm">
+      <p className="font-semibold text-text-secondary mb-2">{label}</p>
       {payload.map((entry) => (
         <div key={entry.name} className="flex items-center gap-2 mb-1">
           <span className="w-2 h-2 rounded-full" style={{ background: entry.color }} />
-          <span className="text-gray-500 capitalize">{entry.name}:</span>
-          <span className="font-semibold text-gray-900">{formatCurrency(entry.value)}</span>
+          <span className="text-text-muted capitalize">{entry.name}:</span>
+          <span className="font-semibold text-text-primary">{formatCurrency(entry.value)}</span>
         </div>
       ))}
     </div>
@@ -48,13 +48,13 @@ export default function CashFlowChart({ data }: Props) {
   const hasData = data.some((d) => d.ingresos > 0 || d.gastos > 0)
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm h-full">
+    <div className="bg-surface rounded-2xl border border-border p-6 shadow-sm h-full">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="font-semibold text-gray-900">Flujo de Caja</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Últimos 6 meses</p>
+          <h2 className="font-semibold text-text-primary">Flujo de Caja</h2>
+          <p className="text-xs text-text-muted mt-0.5">Últimos 6 meses</p>
         </div>
-        <div className="flex items-center gap-4 text-xs text-gray-500">
+        <div className="flex items-center gap-4 text-xs text-text-muted">
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-sm bg-brand-500" />
             Ingresos
@@ -67,7 +67,7 @@ export default function CashFlowChart({ data }: Props) {
       </div>
 
       {!hasData ? (
-        <div className="h-[220px] flex items-center justify-center text-sm text-gray-400">
+        <div className="h-[220px] flex items-center justify-center text-sm text-text-muted">
           Sin datos suficientes para mostrar el gráfico
         </div>
       ) : (
@@ -83,15 +83,19 @@ export default function CashFlowChart({ data }: Props) {
                 <stop offset="95%" stopColor="#f87171" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="rgb(var(--chart-grid))"
+              vertical={false}
+            />
             <XAxis
               dataKey="month"
-              tick={{ fontSize: 12, fill: '#9ca3af' }}
+              tick={{ fontSize: 12, fill: 'rgb(var(--chart-axis))' }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: '#9ca3af' }}
+              tick={{ fontSize: 11, fill: 'rgb(var(--chart-axis))' }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v) => `${v / 1000}k`}

@@ -1,5 +1,5 @@
-import { Flame, TrendingDown } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { cn, formatCurrency } from '@/lib/utils'
 
 interface CategoryStat {
   label: string
@@ -19,46 +19,52 @@ export default function BurnRateCard({
   prevMonthly,
   topCategories = [],
 }: Props) {
+  // For burn rate, lower is better — so negative trend is "good".
   const improved = trend <= 0
+  const Arrow = trend > 0 ? ArrowUpRight : ArrowDownRight
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center">
-            <Flame className="w-5 h-5 text-orange-500" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Burn Rate</p>
-          </div>
-        </div>
-        <span
-          className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${
-            improved ? 'bg-brand-50 text-brand-700' : 'bg-red-50 text-red-600'
-          }`}
-        >
-          <TrendingDown className={`w-3 h-3 ${!improved ? 'rotate-180' : ''}`} />
-          {trend > 0 ? '+' : ''}{trend}%
-        </span>
+    <div className="bg-surface rounded-xl border border-border p-6">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm font-medium text-text-secondary">Burn rate</p>
+        {trend !== 0 && (
+          <span
+            className={cn(
+              'inline-flex items-center gap-0.5 text-xs font-semibold',
+              improved ? 'text-brand-600' : 'text-red-500'
+            )}
+          >
+            <Arrow className="w-3.5 h-3.5" />
+            {trend > 0 ? '+' : ''}
+            {trend}%
+          </span>
+        )}
       </div>
 
-      <div className="mt-2">
-        <p className="text-4xl font-extrabold text-gray-900 tracking-tight">
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-3xl font-bold text-text-primary tracking-tight tabular-nums">
           {formatCurrency(monthly)}
-          <span className="text-sm font-medium text-gray-400 ml-1">/mes</span>
-        </p>
-        <p className="text-sm text-gray-500 mt-2">
-          Mes anterior:{' '}
-          <span className="font-semibold text-gray-700">{formatCurrency(prevMonthly)}</span>
-        </p>
+        </span>
+        <span className="text-sm font-medium text-text-muted">/mes</span>
       </div>
+      <p className="text-xs text-text-muted mt-1.5">
+        Mes anterior{' '}
+        <span className="text-text-secondary font-medium tabular-nums">
+          {formatCurrency(prevMonthly)}
+        </span>
+      </p>
 
       {topCategories.length > 0 && (
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-5 pt-4 border-t border-border space-y-2">
           {topCategories.slice(0, 2).map((cat) => (
-            <div key={cat.label} className="bg-gray-50 rounded-xl p-3">
-              <p className="text-xs text-gray-500 truncate">{cat.label}</p>
-              <p className="font-semibold text-gray-900 text-sm mt-0.5">{formatCurrency(cat.amount)}</p>
+            <div
+              key={cat.label}
+              className="flex items-center justify-between text-xs"
+            >
+              <span className="text-text-muted truncate">{cat.label}</span>
+              <span className="font-semibold text-text-primary tabular-nums">
+                {formatCurrency(cat.amount)}
+              </span>
             </div>
           ))}
         </div>

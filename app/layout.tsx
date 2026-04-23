@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { ClerkProvider } from '@clerk/nextjs'
 import { ToastProvider } from '@/components/ui/Toast'
+import { ThemeProvider, THEME_INIT_SCRIPT } from '@/components/ui/ThemeProvider'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -20,9 +21,16 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="es">
+      <html lang="es" suppressHydrationWarning>
+        <head>
+          {/* Runs BEFORE hydration — sets `.dark` on <html> from localStorage
+              to prevent a theme flash on first paint. */}
+          <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        </head>
         <body>
-          <ToastProvider>{children}</ToastProvider>
+          <ThemeProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </ThemeProvider>
         </body>
       </html>
     </ClerkProvider>

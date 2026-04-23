@@ -4,6 +4,46 @@
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap');
 
+/* ══════════════════════════════════════════════════════════════════
+   Theme tokens — CSS custom properties as space-separated RGB
+   triples so they work with Tailwind's `/ <alpha-value>` syntax.
+   Light mode is the default; `.dark` on <html> flips the tokens.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Light theme */
+  --app-bg:         249 250 251;   /* #f9fafb */
+  --surface:        255 255 255;   /* #ffffff — card bg */
+  --surface-2:      243 244 246;   /* #f3f4f6 — nested / hover */
+  --border-color:   229 231 235;   /* #e5e7eb */
+  --text-primary:    17  24  39;   /* #111827 */
+  --text-secondary:  75  85  99;   /* #4b5563 */
+  --text-muted:     156 163 175;   /* #9ca3af */
+  --brand:            0 196 140;   /* #00C48C */
+  --brand-soft:     230 250 243;
+  --danger:         239  68  68;
+  --warning:        245 158  11;
+  --chart-grid:     229 231 235;
+  --chart-axis:     156 163 175;
+}
+
+.dark {
+  /* Dark theme — near-black navy base, per Finsight design */
+  --app-bg:          10  14  26;   /* #0a0e1a */
+  --surface:         17  24  39;   /* #111827 — card bg */
+  --surface-2:       26  34  54;   /* #1a2236 — nested / hover */
+  --border-color:    31  41  55;   /* #1f2937 */
+  --text-primary:   249 250 251;
+  --text-secondary: 156 163 175;
+  --text-muted:     107 114 128;
+  --brand:            0 196 140;
+  --brand-soft:      18  40  32;
+  --danger:         248 113 113;
+  --warning:        251 191  36;
+  --chart-grid:      31  41  55;
+  --chart-axis:     107 114 128;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -16,7 +56,15 @@
   }
 
   body {
-    @apply bg-white text-gray-900;
+    @apply bg-app text-text-primary;
+  }
+
+  /* Prevent theme flash while the init script runs */
+  html.dark {
+    color-scheme: dark;
+  }
+  html:not(.dark) {
+    color-scheme: light;
   }
 }
 
@@ -28,6 +76,12 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Subtle tabular numerals for financial figures */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
 }
 
 /* ── Print (PDF export for reports) ────────────────────────────── */
@@ -36,8 +90,10 @@
     margin: 1.5cm;
     size: A4;
   }
-  body {
+  /* Always print in light mode for readability on paper */
+  html, body {
     background: white !important;
+    color: black !important;
   }
   aside, header, nav {
     display: none !important;
@@ -48,7 +104,6 @@
   .print\:rounded-none {
     border-radius: 0 !important;
   }
-  /* Keep chart SVG colors */
   .recharts-wrapper {
     page-break-inside: avoid;
   }

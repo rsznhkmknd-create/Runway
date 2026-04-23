@@ -11,17 +11,17 @@ export default async function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-white flex flex-col">
+    <main className="min-h-screen bg-surface flex flex-col">
       {/* Nav */}
-      <nav className="border-b border-gray-100 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto w-full">
+      <nav className="border-b border-border px-6 py-4 flex items-center justify-between max-w-7xl mx-auto w-full">
         <div className="flex items-center gap-2">
           <FinsightLogo size={32} />
-          <span className="font-semibold text-gray-900 text-lg">Finsight</span>
+          <span className="font-semibold text-text-primary text-lg">Finsight</span>
         </div>
         <div className="flex items-center gap-4">
           <Link
             href="/sign-in"
-            className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+            className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
           >
             Iniciar sesión
           </Link>
@@ -41,13 +41,13 @@ export default async function HomePage() {
           Para startups y PYMEs en España y LATAM
         </div>
 
-        <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 leading-tight mb-6">
+        <h1 className="text-5xl md:text-6xl font-extrabold text-text-primary leading-tight mb-6">
           Tu copiloto{' '}
           <span className="text-brand-600">financiero</span>{' '}
           en tiempo real
         </h1>
 
-        <p className="text-xl text-gray-500 mb-10 max-w-2xl">
+        <p className="text-xl text-text-muted mb-10 max-w-2xl">
           Visualiza tu runway, controla el burn rate y gestiona cuentas por cobrar desde un solo
           dashboard. Sin hojas de cálculo.
         </p>
@@ -61,22 +61,22 @@ export default async function HomePage() {
           </Link>
           <Link
             href="/sign-in"
-            className="border border-gray-200 text-gray-700 font-semibold px-8 py-3.5 rounded-xl hover:bg-gray-50 transition-colors text-base"
+            className="border border-border text-text-secondary font-semibold px-8 py-3.5 rounded-xl hover:bg-surface-2 transition-colors text-base"
           >
             Ver demo
           </Link>
         </div>
 
         {/* Stats */}
-        <div className="mt-20 grid grid-cols-3 gap-8 border-t border-gray-100 pt-12 w-full max-w-lg">
+        <div className="mt-20 grid grid-cols-3 gap-8 border-t border-border pt-12 w-full max-w-lg">
           {[
             { value: '+500', label: 'Empresas activas' },
             { value: '€2B+', label: 'Flujo gestionado' },
             { value: '4.9★', label: 'Valoración media' },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
-              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-              <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
+              <p className="text-2xl font-bold text-text-primary">{stat.value}</p>
+              <p className="text-sm text-text-muted mt-1">{stat.label}</p>
             </div>
           ))}
         </div>

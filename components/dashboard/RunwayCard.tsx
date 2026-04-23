@@ -1,5 +1,5 @@
-import { Clock, TrendingUp } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { cn, formatCurrency } from '@/lib/utils'
 
 interface Props {
   months: number
@@ -9,55 +9,45 @@ interface Props {
 
 export default function RunwayCard({ months, trend, cashBalance }: Props) {
   const positive = trend >= 0
+  const Arrow = positive ? ArrowUpRight : ArrowDownRight
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center">
-            <Clock className="w-5 h-5 text-brand-600" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Runway</p>
-          </div>
-        </div>
-        <span
-          className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${
-            positive
-              ? 'bg-brand-50 text-brand-700'
-              : 'bg-red-50 text-red-600'
-          }`}
-        >
-          <TrendingUp className={`w-3 h-3 ${!positive ? 'rotate-180' : ''}`} />
-          {positive ? '+' : ''}{trend} meses
-        </span>
-      </div>
-
-      <div className="mt-2">
-        <p className="text-4xl font-extrabold text-gray-900 tracking-tight">
-          {months}
-          <span className="text-2xl font-semibold text-gray-400 ml-1">meses</span>
-        </p>
-        <p className="text-sm text-gray-500 mt-2">
-          Saldo actual:{' '}
-          <span className="font-semibold text-gray-700">
-            {formatCurrency(cashBalance)}
+    <div className="bg-surface rounded-xl border border-border p-6">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm font-medium text-text-secondary">Runway</p>
+        {trend !== 0 && (
+          <span
+            className={cn(
+              'inline-flex items-center gap-0.5 text-xs font-semibold',
+              positive ? 'text-brand-600' : 'text-red-500'
+            )}
+          >
+            <Arrow className="w-3.5 h-3.5" />
+            {positive ? '+' : ''}
+            {trend}%
           </span>
-        </p>
+        )}
       </div>
 
-      {/* Visual progress bar */}
-      <div className="mt-4">
-        <div className="flex justify-between text-xs text-gray-400 mb-1.5">
-          <span>0 meses</span>
-          <span>24 meses</span>
-        </div>
-        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-brand-500 rounded-full transition-all duration-500"
-            style={{ width: `${Math.min((months / 24) * 100, 100)}%` }}
-          />
-        </div>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-3xl font-bold text-text-primary tracking-tight tabular-nums">
+          {months}
+        </span>
+        <span className="text-sm font-medium text-text-muted">meses</span>
+      </div>
+      <p className="text-xs text-text-muted mt-1.5">
+        Saldo{' '}
+        <span className="text-text-secondary font-medium tabular-nums">
+          {formatCurrency(cashBalance)}
+        </span>
+      </p>
+
+      {/* Minimal progress indicator — Linear-style, 1px high */}
+      <div className="mt-6 h-0.5 w-full bg-surface-2 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-brand-600 rounded-full"
+          style={{ width: `${Math.min((months / 24) * 100, 100)}%` }}
+        />
       </div>
     </div>
   )

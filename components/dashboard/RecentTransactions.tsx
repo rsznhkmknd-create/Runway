@@ -17,11 +17,11 @@ interface Props {
 
 export default function RecentTransactions({ transactions }: Props) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm h-full">
+    <div className="bg-surface rounded-2xl border border-border p-6 shadow-sm h-full">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="font-semibold text-gray-900">Movimientos</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Últimas transacciones</p>
+          <h2 className="font-semibold text-text-primary">Movimientos</h2>
+          <p className="text-xs text-text-muted mt-0.5">Últimas transacciones</p>
         </div>
         <Link
           href="/dashboard/movimientos"
@@ -32,7 +32,7 @@ export default function RecentTransactions({ transactions }: Props) {
       </div>
 
       {transactions.length === 0 ? (
-        <div className="h-[160px] flex items-center justify-center text-sm text-gray-400">
+        <div className="h-[160px] flex items-center justify-center text-sm text-text-muted">
           Sin movimientos aún
         </div>
       ) : (
@@ -51,10 +51,10 @@ export default function RecentTransactions({ transactions }: Props) {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-800 truncate">
+                <p className="text-sm font-medium text-text-primary truncate">
                   {tx.description ?? tx.category}
                 </p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-text-muted">
                   {tx.category} ·{' '}
                   {new Date(tx.date).toLocaleDateString('es-ES', {
                     day: 'numeric',
@@ -64,7 +64,7 @@ export default function RecentTransactions({ transactions }: Props) {
               </div>
               <span
                 className={`text-sm font-semibold shrink-0 ${
-                  tx.type === 'income' ? 'text-brand-700' : 'text-gray-700'
+                  tx.type === 'income' ? 'text-brand-700' : 'text-text-secondary'
                 }`}
               >
                 {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount)}

@@ -34,9 +34,9 @@ export default function SettingsTabs({ initialProfile, email }: Props) {
   const [profile, setProfile] = useState<ProfileData>(initialProfile)
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden">
       {/* Tab bar */}
-      <div role="tablist" className="flex gap-1 px-5 pt-4 border-b border-gray-100">
+      <div role="tablist" className="flex gap-1 px-5 pt-4 border-b border-border">
         <TabButton
           label="Mi perfil"
           Icon={User}
@@ -90,7 +90,7 @@ function TabButton({
         'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 -mb-px transition-colors',
         active
           ? 'border-brand-600 text-brand-700'
-          : 'border-transparent text-gray-500 hover:text-gray-700'
+          : 'border-transparent text-text-muted hover:text-text-secondary'
       )}
     >
       <Icon className="w-4 h-4" />

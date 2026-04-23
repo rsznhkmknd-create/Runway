@@ -86,22 +86,22 @@ export default function AlertCard({ alert }: Props) {
             <h3 className={cn('font-semibold text-sm', s.titleColor)}>
               {alert.title}
             </h3>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 bg-white border border-gray-200 rounded-full px-2 py-0.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted bg-surface border border-border rounded-full px-2 py-0.5">
               {s.label}
             </span>
             {read && (
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
                 · Leída
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-700 leading-relaxed">{alert.message}</p>
+          <p className="text-sm text-text-secondary leading-relaxed">{alert.message}</p>
 
           <div className="mt-4 flex items-center gap-2 flex-wrap">
             {alert.action && (
               <Link
                 href={alert.action.href}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#111827] text-white rounded-lg hover:bg-gray-800 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors"
               >
                 {alert.action.label}
                 <ArrowRight className="w-3 h-3" />
@@ -111,7 +111,7 @@ export default function AlertCard({ alert }: Props) {
             {read ? (
               <button
                 onClick={() => markUnread(alert.id)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary bg-surface border border-border rounded-lg hover:bg-surface-2 transition-colors"
               >
                 <Undo2 className="w-3 h-3" />
                 Marcar sin leer
@@ -119,7 +119,7 @@ export default function AlertCard({ alert }: Props) {
             ) : (
               <button
                 onClick={() => markRead(alert.id)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary bg-surface border border-border rounded-lg hover:bg-surface-2 transition-colors"
               >
                 <Check className="w-3 h-3" />
                 Marcar como leída

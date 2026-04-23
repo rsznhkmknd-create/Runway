@@ -110,8 +110,8 @@ const BUSINESS_TYPES = [
     label: 'Otro',
     desc:  'Mi negocio no encaja en las anteriores',
     Icon:  Sparkles,
-    color: 'text-gray-500',
-    bg:    'bg-gray-100',
+    color: 'text-text-muted',
+    bg:    'bg-surface-2',
   },
 ]
 
@@ -245,17 +245,17 @@ export default function OnboardingWizard() {
   // ── Done / Welcome screen ──────────────────────────────────────────────────
   if (done) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white px-6">
+      <div className="min-h-screen flex items-center justify-center bg-surface px-6">
         <div className="w-full max-w-md text-center">
           {/* Success icon */}
           <div className="mx-auto mb-6 w-20 h-20 rounded-full bg-brand-50 flex items-center justify-center">
             <CheckCircle2 className="w-10 h-10 text-brand-600" />
           </div>
 
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-text-primary mb-2">
             ¡Todo listo, {data.company_name}!
           </h1>
-          <p className="text-gray-500 text-sm mb-8 leading-relaxed">
+          <p className="text-text-muted text-sm mb-8 leading-relaxed">
             Tu espacio financiero está configurado y listo para usar.
           </p>
 
@@ -275,7 +275,7 @@ export default function OnboardingWizard() {
             <ArrowRight className="w-4 h-4" />
           </button>
 
-          <p className="text-xs text-gray-400 mt-4">
+          <p className="text-xs text-text-muted mt-4">
             Puedes editar estos datos en cualquier momento desde Ajustes.
           </p>
         </div>
@@ -294,7 +294,7 @@ export default function OnboardingWizard() {
 
         {/* Logo */}
         <div className="relative z-10 flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+          <div className="w-9 h-9 bg-surface/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
             <FinsightLogo size={24} color="#FFFFFF" />
           </div>
           <span className="text-white font-semibold text-lg tracking-tight">Finsight</span>
@@ -327,9 +327,9 @@ export default function OnboardingWizard() {
                   <div
                     className={cn(
                       'w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all',
-                      isDone    ? 'bg-white'
-                      : isCurrent ? 'bg-white/20 ring-2 ring-white'
-                      :             'bg-white/10'
+                      isDone    ? 'bg-surface'
+                      : isCurrent ? 'bg-surface/20 ring-2 ring-white'
+                      :             'bg-surface/10'
                     )}
                   >
                     {isDone
@@ -361,15 +361,15 @@ export default function OnboardingWizard() {
       </aside>
 
       {/* ── Right panel (form) ────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col bg-surface">
 
         {/* Mobile top bar */}
-        <div className="lg:hidden flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="lg:hidden flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-2">
             <FinsightLogo size={28} />
-            <span className="font-semibold text-gray-900 text-sm">Finsight</span>
+            <span className="font-semibold text-text-primary text-sm">Finsight</span>
           </div>
-          <span className="text-xs text-gray-400 font-medium">Paso {step} de 3</span>
+          <span className="text-xs text-text-muted font-medium">Paso {step} de 3</span>
         </div>
 
         {/* Form scroll area */}
@@ -383,7 +383,7 @@ export default function OnboardingWizard() {
                   key={s}
                   className={cn(
                     'h-1 flex-1 rounded-full transition-all duration-300',
-                    s <= step ? 'bg-brand-500' : 'bg-gray-100'
+                    s <= step ? 'bg-brand-500' : 'bg-surface-2'
                   )}
                 />
               ))}
@@ -396,10 +396,10 @@ export default function OnboardingWizard() {
                   <span className="inline-block text-xs font-semibold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full mb-3">
                     Paso 1 de 3 · Tu negocio
                   </span>
-                  <h1 className="text-2xl font-bold text-gray-900">
+                  <h1 className="text-2xl font-bold text-text-primary">
                     ¿Cómo se llama tu empresa?
                   </h1>
-                  <p className="text-gray-500 text-sm mt-1.5 leading-relaxed">
+                  <p className="text-text-muted text-sm mt-1.5 leading-relaxed">
                     Personalizamos tu experiencia según tu tipo de negocio y mercado.
                   </p>
                 </div>
@@ -407,7 +407,7 @@ export default function OnboardingWizard() {
                 <div className="space-y-5">
                   {/* Company name */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
                       Nombre de la empresa
                     </label>
                     <input
@@ -416,55 +416,55 @@ export default function OnboardingWizard() {
                       autoFocus
                       value={data.company_name}
                       onChange={e => update('company_name', e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl
+                      className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl
                                  focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400
-                                 bg-gray-50 focus:bg-white transition-colors placeholder:text-gray-400"
+                                 bg-surface-2 focus:bg-surface transition-colors placeholder:text-text-muted"
                     />
                   </div>
 
                   {/* Industry */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
                       ¿En qué sector opera?
                     </label>
                     <div className="relative">
                       <select
                         value={data.industry}
                         onChange={e => update('industry', e.target.value)}
-                        className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl
+                        className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl
                                    focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400
-                                   bg-gray-50 focus:bg-white transition-colors appearance-none
-                                   text-gray-700 cursor-pointer"
+                                   bg-surface-2 focus:bg-surface transition-colors appearance-none
+                                   text-text-secondary cursor-pointer"
                       >
                         <option value="">Selecciona una industria</option>
                         {INDUSTRIES.map(i => (
                           <option key={i.value} value={i.value}>{i.label}</option>
                         ))}
                       </select>
-                      <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">▾</span>
+                      <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted text-xs">▾</span>
                     </div>
                   </div>
 
                   {/* Country */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
                       ¿Desde dónde operas?
                     </label>
                     <div className="relative">
                       <select
                         value={data.country}
                         onChange={e => update('country', e.target.value)}
-                        className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl
+                        className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl
                                    focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400
-                                   bg-gray-50 focus:bg-white transition-colors appearance-none
-                                   text-gray-700 cursor-pointer"
+                                   bg-surface-2 focus:bg-surface transition-colors appearance-none
+                                   text-text-secondary cursor-pointer"
                       >
                         <option value="">Selecciona un país</option>
                         {COUNTRIES.map(c => (
                           <option key={c.value} value={c.value}>{c.label}</option>
                         ))}
                       </select>
-                      <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">▾</span>
+                      <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted text-xs">▾</span>
                     </div>
                   </div>
                 </div>
@@ -478,10 +478,10 @@ export default function OnboardingWizard() {
                   <span className="inline-block text-xs font-semibold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full mb-3">
                     Paso 2 de 3 · Tu equipo
                   </span>
-                  <h1 className="text-2xl font-bold text-gray-900">
+                  <h1 className="text-2xl font-bold text-text-primary">
                     Cuéntanos sobre tu equipo
                   </h1>
-                  <p className="text-gray-500 text-sm mt-1.5 leading-relaxed">
+                  <p className="text-text-muted text-sm mt-1.5 leading-relaxed">
                     Adaptamos las métricas a la escala y etapa de tu negocio.
                   </p>
                 </div>
@@ -489,7 +489,7 @@ export default function OnboardingWizard() {
                 <div className="space-y-7">
                   {/* Employee count */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                    <label className="block text-sm font-medium text-text-secondary mb-3">
                       ¿Cuántas personas trabajan en la empresa?
                     </label>
                     <div className="grid grid-cols-5 gap-2">
@@ -502,7 +502,7 @@ export default function OnboardingWizard() {
                             'flex flex-col items-center justify-center py-3.5 px-1.5 rounded-xl border-2 transition-all',
                             data.employee_count === ec.value
                               ? 'border-brand-500 bg-brand-50 text-brand-700'
-                              : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-200 hover:bg-white'
+                              : 'border-border bg-surface-2 text-text-secondary hover:border-border hover:bg-surface'
                           )}
                         >
                           <span className="font-bold text-sm leading-none">{ec.label}</span>
@@ -519,7 +519,7 @@ export default function OnboardingWizard() {
 
                   {/* Business type */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                    <label className="block text-sm font-medium text-text-secondary mb-3">
                       ¿Cómo describirías tu negocio?
                     </label>
                     <div className="space-y-2">
@@ -532,7 +532,7 @@ export default function OnboardingWizard() {
                             'w-full text-left flex items-center gap-3.5 px-4 py-3 rounded-xl border-2 transition-all',
                             data.business_type === bt.value
                               ? 'border-brand-500 bg-brand-50'
-                              : 'border-gray-100 bg-gray-50 hover:border-gray-200 hover:bg-white'
+                              : 'border-border bg-surface-2 hover:border-border hover:bg-surface'
                           )}
                         >
                           {/* Icon */}
@@ -543,11 +543,11 @@ export default function OnboardingWizard() {
                           <div className="flex-1 min-w-0">
                             <p className={cn(
                               'text-sm font-semibold leading-none',
-                              data.business_type === bt.value ? 'text-brand-700' : 'text-gray-800'
+                              data.business_type === bt.value ? 'text-brand-700' : 'text-text-primary'
                             )}>
                               {bt.label}
                             </p>
-                            <p className="text-xs text-gray-500 mt-0.5 truncate">{bt.desc}</p>
+                            <p className="text-xs text-text-muted mt-0.5 truncate">{bt.desc}</p>
                           </div>
                           {/* Radio dot */}
                           <div className={cn(
@@ -565,18 +565,18 @@ export default function OnboardingWizard() {
 
                   {/* Website (optional) */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
                       Sitio web{' '}
-                      <span className="text-gray-400 font-normal">(opcional)</span>
+                      <span className="text-text-muted font-normal">(opcional)</span>
                     </label>
                     <input
                       type="url"
                       placeholder="https://tuempresa.com"
                       value={data.website}
                       onChange={e => update('website', e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl
+                      className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl
                                  focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400
-                                 bg-gray-50 focus:bg-white transition-colors placeholder:text-gray-400"
+                                 bg-surface-2 focus:bg-surface transition-colors placeholder:text-text-muted"
                     />
                   </div>
                 </div>
@@ -590,10 +590,10 @@ export default function OnboardingWizard() {
                   <span className="inline-block text-xs font-semibold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full mb-3">
                     Paso 3 de 3 · Tu objetivo
                   </span>
-                  <h1 className="text-2xl font-bold text-gray-900">
+                  <h1 className="text-2xl font-bold text-text-primary">
                     ¿Qué quieres controlar?
                   </h1>
-                  <p className="text-gray-500 text-sm mt-1.5 leading-relaxed">
+                  <p className="text-text-muted text-sm mt-1.5 leading-relaxed">
                     Tu dashboard se adaptará a lo que más te importa. Puedes cambiar esto después.
                   </p>
                 </div>
@@ -608,7 +608,7 @@ export default function OnboardingWizard() {
                         'w-full text-left flex items-center gap-4 p-4 rounded-xl border-2 transition-all',
                         data.main_goal === value
                           ? 'border-brand-500 bg-brand-50'
-                          : 'border-gray-100 bg-gray-50 hover:border-gray-200 hover:bg-white'
+                          : 'border-border bg-surface-2 hover:border-border hover:bg-surface'
                       )}
                     >
                       <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', bg)}>
@@ -617,11 +617,11 @@ export default function OnboardingWizard() {
                       <div className="flex-1 min-w-0">
                         <p className={cn(
                           'text-sm font-semibold leading-none',
-                          data.main_goal === value ? 'text-brand-700' : 'text-gray-800'
+                          data.main_goal === value ? 'text-brand-700' : 'text-text-primary'
                         )}>
                           {label}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1 leading-snug">{desc}</p>
+                        <p className="text-xs text-text-muted mt-1 leading-snug">{desc}</p>
                       </div>
                       {/* Radio dot */}
                       <div className={cn(
@@ -651,8 +651,8 @@ export default function OnboardingWizard() {
                 <button
                   type="button"
                   onClick={() => setStep(s => s - 1)}
-                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-gray-600
-                             border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-text-secondary
+                             border border-border rounded-xl hover:bg-surface-2 transition-colors"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Volver

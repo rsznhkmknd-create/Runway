@@ -131,7 +131,7 @@ export default function CompanyForm({ initial, onChange }: Props) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-gray-700 mb-1.5">
+          <label className="block text-xs font-medium text-text-secondary mb-1.5">
             Nombre de la empresa
           </label>
           <input
@@ -139,12 +139,12 @@ export default function CompanyForm({ initial, onChange }: Props) {
             value={form.company_name}
             onChange={(e) => update('company_name', e.target.value)}
             placeholder="Ej. Acme S.L."
-            className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
+            className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl bg-surface-2 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1.5">
+          <label className="block text-xs font-medium text-text-secondary mb-1.5">
             CIF / RUT / NIT
           </label>
           <input
@@ -152,16 +152,16 @@ export default function CompanyForm({ initial, onChange }: Props) {
             value={form.tax_id}
             onChange={(e) => update('tax_id', e.target.value.toUpperCase())}
             placeholder="Ej. B12345678"
-            className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors font-mono tracking-wide"
+            className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl bg-surface-2 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors font-mono tracking-wide"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1.5">Sector</label>
+          <label className="block text-xs font-medium text-text-secondary mb-1.5">Sector</label>
           <select
             value={form.industry}
             onChange={(e) => update('industry', e.target.value)}
-            className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
+            className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl bg-surface-2 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
           >
             <option value="">Sin especificar</option>
             {INDUSTRIES.map((i) => (
@@ -171,7 +171,7 @@ export default function CompanyForm({ initial, onChange }: Props) {
         </div>
 
         <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-gray-700 mb-1.5">
+          <label className="block text-xs font-medium text-text-secondary mb-1.5">
             Dirección
           </label>
           <input
@@ -179,27 +179,27 @@ export default function CompanyForm({ initial, onChange }: Props) {
             value={form.address}
             onChange={(e) => update('address', e.target.value)}
             placeholder="Ej. Calle Mayor 25, 4ºB"
-            className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
+            className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl bg-surface-2 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1.5">Ciudad</label>
+          <label className="block text-xs font-medium text-text-secondary mb-1.5">Ciudad</label>
           <input
             type="text"
             value={form.city}
             onChange={(e) => update('city', e.target.value)}
             placeholder="Ej. Madrid"
-            className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
+            className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl bg-surface-2 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1.5">País</label>
+          <label className="block text-xs font-medium text-text-secondary mb-1.5">País</label>
           <select
             value={form.country}
             onChange={(e) => update('country', e.target.value)}
-            className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
+            className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl bg-surface-2 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
           >
             <option value="">Selecciona un país</option>
             {COUNTRIES.map((c) => (
@@ -209,13 +209,13 @@ export default function CompanyForm({ initial, onChange }: Props) {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1.5">
+          <label className="block text-xs font-medium text-text-secondary mb-1.5">
             Moneda base
           </label>
           <select
             value={form.currency}
             onChange={(e) => update('currency', e.target.value)}
-            className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
+            className="w-full px-3.5 py-2.5 text-sm border border-border rounded-xl bg-surface-2 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
           >
             {CURRENCIES.map((c) => (
               <option key={c.value} value={c.value}>{c.label}</option>
@@ -224,17 +224,17 @@ export default function CompanyForm({ initial, onChange }: Props) {
         </div>
 
         <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-gray-700 mb-1.5">
+          <label className="block text-xs font-medium text-text-secondary mb-1.5">
             Sitio web
           </label>
           <div className="relative">
-            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
             <input
               type="url"
               value={form.website}
               onChange={(e) => update('website', e.target.value)}
               placeholder="https://tuempresa.com"
-              className="w-full pl-9 pr-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
+              className="w-full pl-9 pr-3.5 py-2.5 text-sm border border-border rounded-xl bg-surface-2 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-colors"
             />
           </div>
         </div>
@@ -246,7 +246,7 @@ export default function CompanyForm({ initial, onChange }: Props) {
         </p>
       )}
 
-      <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
+      <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
         <button
           type="button"
           onClick={handleSave}

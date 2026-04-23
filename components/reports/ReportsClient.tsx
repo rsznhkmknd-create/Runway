@@ -80,8 +80,8 @@ export default function ReportsClient({ initialReports }: Props) {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Reportes con IA</h1>
-        <p className="text-gray-500 mt-1 text-sm">
+        <h1 className="text-2xl font-bold text-text-primary">Reportes con IA</h1>
+        <p className="text-text-muted mt-1 text-sm">
           Análisis financiero generado por Claude como si tuvieras un CFO fraccional
         </p>
       </div>
@@ -119,25 +119,25 @@ export default function ReportsClient({ initialReports }: Props) {
 
       {/* History */}
       <div>
-        <h2 className="font-semibold text-gray-900 mb-4">Historial de reportes</h2>
+        <h2 className="font-semibold text-text-primary mb-4">Historial de reportes</h2>
         {reports.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 px-8 py-16 text-center">
+          <div className="rounded-2xl border border-dashed border-border bg-surface-2/50 px-8 py-16 text-center">
             <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-brand-100 flex items-center justify-center">
               <FileBarChart className="w-6 h-6 text-brand-600" />
             </div>
-            <h3 className="text-base font-semibold text-gray-900 mb-1.5">Aún no has generado reportes</h3>
-            <p className="text-sm text-gray-500 max-w-sm mx-auto">
+            <h3 className="text-base font-semibold text-text-primary mb-1.5">Aún no has generado reportes</h3>
+            <p className="text-sm text-text-muted max-w-sm mx-auto">
               Genera tu primer reporte semanal o mensual para ver un análisis detallado de tu negocio.
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <ul className="divide-y divide-gray-50">
+          <div className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden">
+            <ul className="divide-y divide-border">
               {reports.map((r) => {
                 const period = formatPeriod({ start: r.period_start, end: r.period_end }, r.type)
                 const isBusyRow = deleting === r.id
                 return (
-                  <li key={r.id} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50/50 transition-colors">
+                  <li key={r.id} className="flex items-center gap-4 px-5 py-4 hover:bg-surface-2/50 transition-colors">
                     <div className={cn(
                       'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
                       r.type === 'weekly' ? 'bg-amber-50' : 'bg-brand-50'
@@ -150,13 +150,13 @@ export default function ReportsClient({ initialReports }: Props) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold text-sm text-gray-900 truncate">
+                        <p className="font-semibold text-sm text-text-primary truncate">
                           {r.type === 'weekly' ? 'Reporte semanal' : 'Reporte mensual'}
                         </p>
-                        <span className="text-xs text-gray-400">·</span>
-                        <p className="text-xs text-gray-500 truncate">{period}</p>
+                        <span className="text-xs text-text-muted">·</span>
+                        <p className="text-xs text-text-muted truncate">{period}</p>
                       </div>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-xs text-text-muted mt-0.5">
                         Generado {new Date(r.created_at).toLocaleDateString('es-ES', {
                           day: 'numeric', month: 'short', year: 'numeric',
                           hour: '2-digit', minute: '2-digit',
@@ -173,7 +173,7 @@ export default function ReportsClient({ initialReports }: Props) {
                     <button
                       onClick={() => remove(r.id)}
                       disabled={isBusyRow}
-                      className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                      className="w-7 h-7 flex items-center justify-center text-text-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                       title="Eliminar"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -208,17 +208,17 @@ function GenerateCard({
   onGenerate: () => void
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col">
+    <div className="bg-surface rounded-2xl border border-border shadow-sm p-6 flex flex-col">
       <div className="flex items-start gap-3 mb-4">
         <div className="w-11 h-11 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
           <Icon className="w-5 h-5 text-brand-600" />
         </div>
         <div>
-          <h3 className="font-semibold text-gray-900">{title}</h3>
-          <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
+          <h3 className="font-semibold text-text-primary">{title}</h3>
+          <p className="text-xs text-text-muted mt-0.5">{subtitle}</p>
         </div>
       </div>
-      <p className="text-sm text-gray-600 mb-6 flex-1">{description}</p>
+      <p className="text-sm text-text-secondary mb-6 flex-1">{description}</p>
       <button
         onClick={onGenerate}
         disabled={disabled}

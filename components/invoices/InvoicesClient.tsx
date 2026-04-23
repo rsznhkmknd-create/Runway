@@ -124,8 +124,8 @@ export default function InvoicesClient({ initialInvoices }: Props) {
       <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Facturas</h1>
-            <p className="text-gray-500 mt-1 text-sm">Gestión de cuentas por cobrar</p>
+            <h1 className="text-2xl font-bold text-text-primary">Facturas</h1>
+            <p className="text-text-muted mt-1 text-sm">Gestión de cuentas por cobrar</p>
           </div>
           <button
             onClick={() => setModalOpen(true)}
@@ -139,8 +139,8 @@ export default function InvoicesClient({ initialInvoices }: Props) {
           <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-brand-100 flex items-center justify-center">
             <FileText className="w-6 h-6 text-brand-600" />
           </div>
-          <h2 className="text-lg font-bold text-gray-900 mb-2">Sin facturas registradas</h2>
-          <p className="text-sm text-gray-500 max-w-sm mx-auto leading-relaxed mb-6">
+          <h2 className="text-lg font-bold text-text-primary mb-2">Sin facturas registradas</h2>
+          <p className="text-sm text-text-muted max-w-sm mx-auto leading-relaxed mb-6">
             Añade facturas manualmente o sube un PDF/imagen para extraer los datos automáticamente.
           </p>
           <div className="flex items-center justify-center gap-2">
@@ -153,7 +153,7 @@ export default function InvoicesClient({ initialInvoices }: Props) {
             </button>
             <Link
               href="/dashboard/importar"
-              className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl hover:bg-white transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 border border-border text-text-secondary text-sm font-semibold rounded-xl hover:bg-surface transition-colors"
             >
               <Upload className="w-4 h-4" />
               Importar transacciones
@@ -175,8 +175,8 @@ export default function InvoicesClient({ initialInvoices }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Facturas</h1>
-          <p className="text-gray-500 mt-1 text-sm">Gestión de cuentas por cobrar</p>
+          <h1 className="text-2xl font-bold text-text-primary">Facturas</h1>
+          <p className="text-text-muted mt-1 text-sm">Gestión de cuentas por cobrar</p>
         </div>
         <button
           onClick={() => setModalOpen(true)}
@@ -213,40 +213,40 @@ export default function InvoicesClient({ initialInvoices }: Props) {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-900">Todas las facturas</h2>
+      <div className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+          <h2 className="font-semibold text-text-primary">Todas las facturas</h2>
           <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-gray-400" />
-            <span className="text-sm text-gray-500">{invoices.length} facturas</span>
+            <FileText className="w-4 h-4 text-text-muted" />
+            <span className="text-sm text-text-muted">{invoices.length} facturas</span>
           </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-50">
+              <tr className="border-b border-border">
                 {['Cliente', 'Importe', 'Vencimiento', 'Estado', ''].map((h) => (
                   <th
                     key={h}
-                    className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide"
+                    className="px-6 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wide"
                   >
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-border">
               {invoices.map((inv) => {
                 const s = statusConfig[inv.status]
                 const Icon = s.icon
                 const isBusy = busyId === inv.id
                 return (
-                  <tr key={inv.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-gray-800">{inv.client_name}</td>
-                    <td className="px-6 py-4 font-semibold text-gray-900">
+                  <tr key={inv.id} className="hover:bg-surface-2/50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-text-primary">{inv.client_name}</td>
+                    <td className="px-6 py-4 font-semibold text-text-primary">
                       {formatCurrency(Number(inv.amount), inv.currency)}
                     </td>
-                    <td className="px-6 py-4 text-gray-500">
+                    <td className="px-6 py-4 text-text-muted">
                       {new Date(inv.due_date).toLocaleDateString('es-ES', {
                         day:   'numeric',
                         month: 'short',
@@ -284,7 +284,7 @@ export default function InvoicesClient({ initialInvoices }: Props) {
                         <button
                           onClick={() => remove(inv.id)}
                           disabled={isBusy}
-                          className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                          className="w-7 h-7 flex items-center justify-center text-text-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                           title="Eliminar factura"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -324,7 +324,7 @@ function MetricCard({
   return (
     <div className={cn(bg, 'rounded-2xl p-5')}>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-medium text-gray-500">{label}</p>
+        <p className="text-xs font-medium text-text-muted">{label}</p>
         <Icon className={cn('w-4 h-4', text)} />
       </div>
       <p className={cn('text-2xl font-bold', text)}>{formatCurrency(value)}</p>

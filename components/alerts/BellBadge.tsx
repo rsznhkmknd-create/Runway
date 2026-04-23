@@ -17,7 +17,7 @@ export default function BellBadge() {
           ? `${unreadCount} alerta${unreadCount === 1 ? '' : 's'} sin leer`
           : 'Sin alertas'
       }
-      className="relative w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
+      className="relative w-9 h-9 flex items-center justify-center rounded-lg text-text-muted hover:text-text-secondary hover:bg-surface-2 transition-colors"
     >
       <Bell className="w-4.5 h-4.5" />
 

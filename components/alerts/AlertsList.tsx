@@ -17,8 +17,8 @@ export default function AlertsList() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Alertas</h1>
-          <p className="text-gray-500 mt-1 text-sm">
+          <h1 className="text-2xl font-bold text-text-primary">Alertas</h1>
+          <p className="text-text-muted mt-1 text-sm">
             {alerts.length === 0
               ? 'Todo está en orden — sin alertas activas'
               : `${unreadCount} sin leer · ${alerts.length} en total`}
@@ -28,7 +28,7 @@ export default function AlertsList() {
         {unreadCount > 0 && (
           <button
             onClick={markAllRead}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 bg-white border border-gray-200 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-text-primary bg-surface border border-border px-3 py-2 rounded-lg hover:bg-surface-2 transition-colors"
           >
             <CheckCheck className="w-3.5 h-3.5" />
             Marcar todas como leídas
@@ -41,8 +41,8 @@ export default function AlertsList() {
           <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-brand-100 flex items-center justify-center">
             <CheckCircle2 className="w-6 h-6 text-brand-600" />
           </div>
-          <h2 className="text-lg font-bold text-gray-900 mb-2">Sin alertas activas</h2>
-          <p className="text-sm text-gray-500 max-w-sm mx-auto leading-relaxed">
+          <h2 className="text-lg font-bold text-text-primary mb-2">Sin alertas activas</h2>
+          <p className="text-sm text-text-muted max-w-sm mx-auto leading-relaxed">
             Tu runway está saludable, tus facturas al día y tus gastos bajo control.
             Te avisaremos aquí si algo cambia.
           </p>
@@ -55,8 +55,8 @@ export default function AlertsList() {
             ))}
           </div>
 
-          <div className="flex items-start gap-3 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs text-gray-500">
-            <Bell className="w-3.5 h-3.5 mt-0.5 shrink-0 text-gray-400" />
+          <div className="flex items-start gap-3 bg-surface-2 border border-border rounded-xl px-4 py-3 text-xs text-text-muted">
+            <Bell className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-muted" />
             <p>
               Las alertas se calculan en tiempo real a partir de tus transacciones y facturas.
               Cuando la condición deja de cumplirse, la alerta desaparece automáticamente.

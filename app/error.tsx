@@ -15,7 +15,7 @@ export default function RootError({
   }, [error])
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-white">
+    <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-surface">
       <ErrorState
         title="Algo se rompió en la aplicación"
         message="Encontramos un error inesperado. Puedes reintentar — si el problema persiste, recarga la página."

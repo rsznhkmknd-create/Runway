@@ -9,8 +9,8 @@ export default function ImportarPage() {
     <div className="space-y-8 max-w-3xl">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Importar datos financieros</h1>
-        <p className="text-gray-500 mt-1 text-sm">
+        <h1 className="text-2xl font-bold text-text-primary">Importar datos financieros</h1>
+        <p className="text-text-muted mt-1 text-sm">
           Sube tu archivo y Claude detectará automáticamente las columnas
         </p>
       </div>
@@ -33,12 +33,12 @@ export default function ImportarPage() {
       <FileUploadModule />
 
       {/* Accepted formats */}
-      <div className="flex flex-wrap gap-2 text-xs text-gray-400">
+      <div className="flex flex-wrap gap-2 text-xs text-text-muted">
         <span className="flex items-center gap-1.5">
           <UploadCloud className="w-3.5 h-3.5" /> Formatos aceptados:
         </span>
         {['.xlsx', '.xls', '.csv', '.ods'].map((ext) => (
-          <span key={ext} className="bg-gray-100 px-2 py-0.5 rounded font-mono">
+          <span key={ext} className="bg-surface-2 px-2 py-0.5 rounded font-mono">
             {ext}
           </span>
         ))}

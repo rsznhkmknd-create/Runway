@@ -149,7 +149,7 @@ export default function FileUploadModule() {
           'border-2 border-dashed rounded-2xl p-12 text-center transition-colors cursor-pointer select-none',
           isDragging
             ? 'border-brand-400 bg-brand-50'
-            : 'border-gray-200 hover:border-brand-300 hover:bg-gray-50'
+            : 'border-border hover:border-brand-300 hover:bg-surface-2'
         )}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
         onDragLeave={() => setIsDragging(false)}
@@ -170,14 +170,14 @@ export default function FileUploadModule() {
         <UploadCloud
           className={cn(
             'w-12 h-12 mx-auto mb-4',
-            isDragging ? 'text-brand-500' : 'text-gray-300'
+            isDragging ? 'text-brand-500' : 'text-text-muted'
           )}
         />
-        <p className="text-base font-semibold text-gray-700 mb-1">
+        <p className="text-base font-semibold text-text-secondary mb-1">
           Arrastra tu archivo aquí o{' '}
           <span className="text-brand-600 underline underline-offset-2">selecciona uno</span>
         </p>
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-text-muted">
           Claude detectará las columnas automáticamente · .xlsx · .xls · .csv · .ods · máx. 10 MB
         </p>
       </div>
@@ -187,10 +187,10 @@ export default function FileUploadModule() {
   // ── analyzing ────────────────────────────────────────────────────────────
   if (step === 'analyzing') {
     return (
-      <div className="border border-gray-100 rounded-2xl p-12 text-center bg-white shadow-sm">
+      <div className="border border-border rounded-2xl p-12 text-center bg-surface shadow-sm">
         <Loader2 className="w-10 h-10 mx-auto mb-4 text-brand-500 animate-spin" />
-        <p className="font-semibold text-gray-800 mb-1">Analizando archivo…</p>
-        <p className="text-sm text-gray-400">
+        <p className="font-semibold text-text-primary mb-1">Analizando archivo…</p>
+        <p className="text-sm text-text-muted">
           Claude está leyendo las columnas, evaluando fórmulas e infiriendo categorías
         </p>
       </div>
@@ -200,10 +200,10 @@ export default function FileUploadModule() {
   // ── importing ────────────────────────────────────────────────────────────
   if (step === 'importing') {
     return (
-      <div className="border border-gray-100 rounded-2xl p-12 text-center bg-white shadow-sm">
+      <div className="border border-border rounded-2xl p-12 text-center bg-surface shadow-sm">
         <Loader2 className="w-10 h-10 mx-auto mb-4 text-brand-500 animate-spin" />
-        <p className="font-semibold text-gray-800 mb-1">Importando transacciones…</p>
-        <p className="text-sm text-gray-400">
+        <p className="font-semibold text-text-primary mb-1">Importando transacciones…</p>
+        <p className="text-sm text-text-muted">
           Guardando {result?.totalTransactions} transacciones
         </p>
       </div>
@@ -215,13 +215,13 @@ export default function FileUploadModule() {
     return (
       <div className="border border-brand-100 rounded-2xl p-12 text-center bg-brand-50 shadow-sm">
         <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-brand-600" />
-        <p className="text-xl font-bold text-gray-900 mb-1">¡Importación completada!</p>
-        <p className="text-gray-500 mb-2">
+        <p className="text-xl font-bold text-text-primary mb-1">¡Importación completada!</p>
+        <p className="text-text-muted mb-2">
           Se importaron{' '}
           <span className="font-semibold text-brand-700">{insertedCount} transacciones</span>{' '}
           correctamente.
         </p>
-        <p className="text-sm text-gray-400">Redirigiendo al dashboard…</p>
+        <p className="text-sm text-text-muted">Redirigiendo al dashboard…</p>
       </div>
     )
   }
@@ -229,17 +229,17 @@ export default function FileUploadModule() {
   // ── error ────────────────────────────────────────────────────────────────
   if (step === 'error') {
     return (
-      <div className="border border-red-100 rounded-2xl p-10 bg-white shadow-sm">
+      <div className="border border-red-100 rounded-2xl p-10 bg-surface shadow-sm">
         <div className="flex gap-3 items-start mb-6">
           <AlertCircle className="w-6 h-6 text-red-500 shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold text-red-700 mb-1">No se pudo procesar el archivo</p>
-            <p className="text-sm text-gray-600">{errorMessage}</p>
+            <p className="text-sm text-text-secondary">{errorMessage}</p>
           </div>
         </div>
         <button
           onClick={reset}
-          className="flex items-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium px-4 py-2 rounded-xl transition-colors text-sm"
+          className="flex items-center gap-2 border border-border text-text-secondary hover:bg-surface-2 font-medium px-4 py-2 rounded-xl transition-colors text-sm"
         >
           <RefreshCw className="w-4 h-4" /> Intentar con otro archivo
         </button>
@@ -253,14 +253,14 @@ export default function FileUploadModule() {
   return (
     <div className="space-y-5">
       {/* File summary */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-start justify-between gap-4">
+      <div className="bg-surface rounded-2xl border border-border shadow-sm p-5 flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center shrink-0">
             <FileSpreadsheet className="w-5 h-5 text-brand-600" />
           </div>
           <div>
-            <p className="font-semibold text-gray-800 text-sm">{result.filename}</p>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="font-semibold text-text-primary text-sm">{result.filename}</p>
+            <p className="text-xs text-text-muted mt-0.5">
               {result.totalRows} filas leídas ·{' '}
               <span className="font-semibold text-brand-700">{result.totalTransactions}</span>{' '}
               transacciones detectadas
@@ -289,42 +289,42 @@ export default function FileUploadModule() {
       )}
 
       {/* Preview table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-50">
-          <h2 className="font-semibold text-gray-900">Vista previa — primeras 5 transacciones</h2>
-          <p className="text-xs text-gray-400 mt-0.5">
+      <div className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h2 className="font-semibold text-text-primary">Vista previa — primeras 5 transacciones</h2>
+          <p className="text-xs text-text-muted mt-0.5">
             Revisa los datos antes de confirmar la importación
           </p>
         </div>
         <div className="overflow-x-auto scrollbar-hide">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-50 bg-gray-50/50">
+              <tr className="border-b border-border bg-surface-2/50">
                 {['Fecha', 'Descripción', 'Categoría', 'Tipo', 'Importe'].map((h) => (
                   <th
                     key={h}
-                    className="px-4 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide"
+                    className="px-4 py-2.5 text-left text-xs font-semibold text-text-muted uppercase tracking-wide"
                   >
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-border">
               {result.preview.map((tx, i) => (
-                <tr key={i} className="hover:bg-gray-50/50">
-                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                <tr key={i} className="hover:bg-surface-2/50">
+                  <td className="px-4 py-3 text-text-secondary whitespace-nowrap">
                     {new Date(tx.date).toLocaleDateString('es-ES', {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',
                     })}
                   </td>
-                  <td className="px-4 py-3 text-gray-800 font-medium max-w-xs truncate">
+                  <td className="px-4 py-3 text-text-primary font-medium max-w-xs truncate">
                     {tx.description}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-text-muted bg-surface-2 px-2 py-0.5 rounded-full">
                       {tx.category}
                     </span>
                   </td>
@@ -342,7 +342,7 @@ export default function FileUploadModule() {
                   <td
                     className={cn(
                       'px-4 py-3 font-semibold whitespace-nowrap',
-                      tx.type === 'income' ? 'text-brand-700' : 'text-gray-900'
+                      tx.type === 'income' ? 'text-brand-700' : 'text-text-primary'
                     )}
                   >
                     {tx.type === 'income' ? '+' : '−'}
@@ -359,14 +359,14 @@ export default function FileUploadModule() {
       <div className="flex items-center justify-between">
         <button
           onClick={reset}
-          className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          className="text-sm text-text-muted hover:text-text-secondary transition-colors"
         >
           ← Cancelar y subir otro archivo
         </button>
         <div className="flex items-center gap-3">
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-text-muted">
             Se importarán{' '}
-            <span className="font-semibold text-gray-700">{result.totalTransactions}</span>{' '}
+            <span className="font-semibold text-text-secondary">{result.totalTransactions}</span>{' '}
             transacciones
           </p>
           <button

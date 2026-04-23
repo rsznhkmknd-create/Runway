@@ -227,10 +227,10 @@ export default async function DashboardPage() {
 
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-text-primary">
           Buenos días, {firstName}
         </h1>
-        <p className="text-gray-500 mt-1 text-sm">
+        <p className="text-text-muted mt-1 text-sm">
           Aquí tienes el resumen financiero de hoy —{' '}
           {new Date().toLocaleDateString('es-ES', {
             weekday: 'long',
@@ -247,10 +247,10 @@ export default async function DashboardPage() {
           <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-brand-100 flex items-center justify-center">
             <Upload className="w-6 h-6 text-brand-600" />
           </div>
-          <h2 className="text-lg font-bold text-gray-900 mb-2">
+          <h2 className="text-lg font-bold text-text-primary mb-2">
             Tu runway empieza aquí
           </h2>
-          <p className="text-sm text-gray-500 max-w-xs mx-auto leading-relaxed mb-6">
+          <p className="text-sm text-text-muted max-w-xs mx-auto leading-relaxed mb-6">
             Importa tu primer archivo de transacciones y en segundos verás tu runway,
             burn rate y flujo de caja al detalle.
           </p>
@@ -262,7 +262,7 @@ export default async function DashboardPage() {
             <Upload className="w-4 h-4" />
             Importar mi primer archivo
           </Link>
-          <p className="text-xs text-gray-400 mt-4">
+          <p className="text-xs text-text-muted mt-4">
             Compatible con Excel (.xlsx) y CSV · Tus datos son privados y seguros
           </p>
         </div>

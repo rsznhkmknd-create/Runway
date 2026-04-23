@@ -96,9 +96,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
   const config = {
-    success: { Icon: CheckCircle2, classes: 'border-brand-200 bg-white text-gray-900',    iconColor: 'text-brand-600' },
-    error:   { Icon: AlertCircle,  classes: 'border-red-200 bg-white text-gray-900',      iconColor: 'text-red-600'   },
-    info:    { Icon: Info,         classes: 'border-gray-200 bg-white text-gray-900',     iconColor: 'text-gray-600'  },
+    success: { Icon: CheckCircle2, classes: 'border-brand-200 bg-surface text-text-primary',    iconColor: 'text-brand-600' },
+    error:   { Icon: AlertCircle,  classes: 'border-red-200 bg-surface text-text-primary',      iconColor: 'text-red-600'   },
+    info:    { Icon: Info,         classes: 'border-border bg-surface text-text-primary',     iconColor: 'text-text-secondary'  },
   }[toast.kind]
 
   const { Icon, classes, iconColor } = config
@@ -115,7 +115,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       <p className="flex-1 leading-relaxed">{toast.message}</p>
       <button
         onClick={onDismiss}
-        className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-50"
+        className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-text-muted hover:text-text-secondary hover:bg-surface-2"
         aria-label="Cerrar"
       >
         <X className="w-3.5 h-3.5" />

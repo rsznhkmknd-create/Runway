@@ -67,7 +67,7 @@ export default function ReportView({ report }: Props) {
       <div className="flex items-center justify-between print:hidden">
         <Link
           href="/dashboard/reportes"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-secondary transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Volver a reportes
@@ -127,7 +127,7 @@ export default function ReportView({ report }: Props) {
       </section>
 
       {/* Runway highlight */}
-      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-center gap-4">
+      <section className="bg-surface rounded-2xl border border-border shadow-sm p-6 flex items-center gap-4">
         <div
           className={cn(
             'w-12 h-12 rounded-xl flex items-center justify-center shrink-0',
@@ -143,8 +143,8 @@ export default function ReportView({ report }: Props) {
           <Clock className="w-6 h-6" />
         </div>
         <div className="flex-1">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Runway</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-xs font-medium text-text-muted uppercase tracking-wide">Runway</p>
+          <p className="text-2xl font-bold text-text-primary">
             {k.runway_months == null
               ? 'Sin quema — runway ilimitado'
               : `${k.runway_months.toFixed(1)} meses`}
@@ -158,19 +158,19 @@ export default function ReportView({ report }: Props) {
       </section>
 
       {/* Mini bar chart — KPIs */}
-      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h2 className="font-semibold text-gray-900 mb-5">KPIs del período</h2>
+      <section className="bg-surface rounded-2xl border border-border shadow-sm p-6">
+        <h2 className="font-semibold text-text-primary mb-5">KPIs del período</h2>
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={kpiBars} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 11, fill: '#6b7280' }}
+                tick={{ fontSize: 11, fill: 'rgb(var(--chart-axis))' }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 10, fill: '#9ca3af' }}
+                tick={{ fontSize: 10, fill: 'rgb(var(--chart-axis))' }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v) => `${Math.round(v / 1000)}k`}
@@ -179,7 +179,9 @@ export default function ReportView({ report }: Props) {
                 cursor={{ fill: 'rgba(0,0,0,0.03)' }}
                 contentStyle={{
                   borderRadius: 12,
-                  border: '1px solid #f3f4f6',
+                  border: '1px solid rgb(var(--border-color))',
+                  background: 'rgb(var(--surface))',
+                  color: 'rgb(var(--text-primary))',
                   fontSize: 12,
                 }}
                 formatter={(v: number) => formatCurrency(v, c.currency)}
@@ -196,10 +198,10 @@ export default function ReportView({ report }: Props) {
 
       {/* Trends */}
       {trendsChart.length > 0 && (
-        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <section className="bg-surface rounded-2xl border border-border shadow-sm p-6">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="font-semibold text-gray-900">Tendencias por categoría</h2>
-            <div className="flex items-center gap-4 text-xs text-gray-500">
+            <h2 className="font-semibold text-text-primary">Tendencias por categoría</h2>
+            <div className="flex items-center gap-4 text-xs text-text-muted">
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-sm bg-[#00C48C]" /> Actual
               </span>
@@ -213,19 +215,19 @@ export default function ReportView({ report }: Props) {
               <BarChart data={trendsChart} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
                 <XAxis
                   dataKey="name"
-                  tick={{ fontSize: 11, fill: '#6b7280' }}
+                  tick={{ fontSize: 11, fill: 'rgb(var(--chart-axis))' }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 10, fill: '#9ca3af' }}
+                  tick={{ fontSize: 10, fill: 'rgb(var(--chart-axis))' }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(v) => `${Math.round(v / 1000)}k`}
                 />
                 <Tooltip
                   cursor={{ fill: 'rgba(0,0,0,0.03)' }}
-                  contentStyle={{ borderRadius: 12, border: '1px solid #f3f4f6', fontSize: 12 }}
+                  contentStyle={{ borderRadius: 12, border: '1px solid rgb(var(--border-color))', background: 'rgb(var(--surface))', color: 'rgb(var(--text-primary))', fontSize: 12 }}
                   formatter={(v: number) => formatCurrency(v, c.currency)}
                 />
                 <Bar dataKey="previous" fill="#d1d5db" radius={[6, 6, 0, 0]} />
@@ -236,7 +238,7 @@ export default function ReportView({ report }: Props) {
           <div className="mt-5 space-y-2">
             {c.trends.map((t, i) => (
               <div key={i} className="flex items-center justify-between text-sm">
-                <span className="text-gray-700">{t.category}</span>
+                <span className="text-text-secondary">{t.category}</span>
                 <span className={cn(
                   'inline-flex items-center gap-1 font-semibold',
                   t.delta_pct > 0 ? 'text-red-600' : 'text-brand-700'
@@ -270,7 +272,7 @@ export default function ReportView({ report }: Props) {
       {/* Alerts */}
       {c.alerts.length > 0 && (
         <section>
-          <h2 className="font-semibold text-gray-900 mb-3">Alertas y riesgos</h2>
+          <h2 className="font-semibold text-text-primary mb-3">Alertas y riesgos</h2>
           <div className="space-y-2">
             {c.alerts.map((a, i) => {
               const s = SEVERITY[a.severity]
@@ -310,10 +312,10 @@ export default function ReportView({ report }: Props) {
       )}
 
       {/* Projection */}
-      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+      <section className="bg-surface rounded-2xl border border-border shadow-sm p-6">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp className="w-5 h-5 text-brand-600" />
-          <h2 className="font-semibold text-gray-900">Proyección a 30 días</h2>
+          <h2 className="font-semibold text-text-primary">Proyección a 30 días</h2>
         </div>
         <div className="grid grid-cols-3 gap-4">
           <ProjectionCell
@@ -336,7 +338,7 @@ export default function ReportView({ report }: Props) {
           />
         </div>
         {c.projection_30d.notes && (
-          <p className="text-xs text-gray-500 mt-4 leading-relaxed">{c.projection_30d.notes}</p>
+          <p className="text-xs text-text-muted mt-4 leading-relaxed">{c.projection_30d.notes}</p>
         )}
       </section>
     </div>
@@ -366,14 +368,14 @@ function KpiCard({
         'rounded-2xl p-5 border',
         highlight
           ? 'bg-brand-50 border-brand-100'
-          : 'bg-white border-gray-100 shadow-sm'
+          : 'bg-surface border-border shadow-sm'
       )}
     >
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-xs font-medium text-text-muted uppercase tracking-wide">{label}</p>
       <p
         className={cn(
           'text-xl font-bold mt-2',
-          highlight ? 'text-brand-800' : 'text-gray-900'
+          highlight ? 'text-brand-800' : 'text-text-primary'
         )}
       >
         {formatCurrency(value, currency)}
@@ -397,10 +399,10 @@ function TopList({
   accent: 'income' | 'expense'
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-      <h3 className="font-semibold text-gray-900 mb-4">{title}</h3>
+    <div className="bg-surface rounded-2xl border border-border shadow-sm p-6">
+      <h3 className="font-semibold text-text-primary mb-4">{title}</h3>
       {items.length === 0 ? (
-        <p className="text-sm text-gray-400">Sin datos suficientes.</p>
+        <p className="text-sm text-text-muted">Sin datos suficientes.</p>
       ) : (
         <ul className="space-y-3">
           {items.map((item, i) => (
@@ -413,11 +415,11 @@ function TopList({
               )}>
                 {i + 1}
               </span>
-              <span className="flex-1 text-sm text-gray-800 truncate">{item.name}</span>
+              <span className="flex-1 text-sm text-text-primary truncate">{item.name}</span>
               <span
                 className={cn(
                   'text-sm font-semibold whitespace-nowrap',
-                  accent === 'income' ? 'text-brand-700' : 'text-gray-900'
+                  accent === 'income' ? 'text-brand-700' : 'text-text-primary'
                 )}
               >
                 {formatCurrency(item.amount, currency)}
@@ -441,7 +443,7 @@ function ProjectionCell({
 }) {
   return (
     <div>
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-xs font-medium text-text-muted uppercase tracking-wide">{label}</p>
       <p
         className={cn(
           'text-lg font-bold mt-1.5',
@@ -449,7 +451,7 @@ function ProjectionCell({
             ? positive
               ? 'text-brand-700'
               : 'text-red-600'
-            : 'text-gray-900'
+            : 'text-text-primary'
         )}
       >
         {formatCurrency(value, currency)}

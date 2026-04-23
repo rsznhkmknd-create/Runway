@@ -65,36 +65,36 @@ export default async function AjustesPage() {
   return (
     <div className="space-y-8 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Ajustes</h1>
-        <p className="text-gray-500 mt-1 text-sm">Configura tu cuenta y el perfil de tu empresa</p>
+        <h1 className="text-2xl font-bold text-text-primary">Ajustes</h1>
+        <p className="text-text-muted mt-1 text-sm">Configura tu cuenta y el perfil de tu empresa</p>
       </div>
 
       <SettingsTabs initialProfile={initialProfile} email={email} />
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <h2 className="font-semibold text-gray-900 px-6 pt-5 pb-3">Otras configuraciones</h2>
-        <div className="divide-y divide-gray-50">
+      <div className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden">
+        <h2 className="font-semibold text-text-primary px-6 pt-5 pb-3">Otras configuraciones</h2>
+        <div className="divide-y divide-border">
           {SECTIONS.map(({ id, icon: Icon, color, iconColor, title, description }) => (
             <button
               key={id}
-              className="w-full flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+              className="w-full flex items-center gap-4 px-6 py-4 hover:bg-surface-2 transition-colors text-left"
             >
               <div className={`w-10 h-10 ${color} rounded-xl flex items-center justify-center shrink-0`}>
                 <Icon className={`w-5 h-5 ${iconColor}`} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-800">{title}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{description}</p>
+                <p className="text-sm font-semibold text-text-primary">{title}</p>
+                <p className="text-xs text-text-muted mt-0.5">{description}</p>
               </div>
-              <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
+              <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
             </button>
           ))}
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-red-100 p-6 shadow-sm">
+      <div className="bg-surface rounded-2xl border border-red-100 p-6 shadow-sm">
         <h2 className="font-semibold text-red-600 mb-1">Zona de peligro</h2>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-text-muted mb-4">
           Estas acciones son irreversibles. Procede con cautela.
         </p>
         <div className="flex flex-col sm:flex-row gap-3">

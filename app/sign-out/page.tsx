@@ -13,8 +13,8 @@ export default function SignOutPage() {
   }, [signOut, router])
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <p className="text-gray-500 text-sm">Cerrando sesión...</p>
+    <div className="min-h-screen bg-surface-2 flex items-center justify-center">
+      <p className="text-text-muted text-sm">Cerrando sesión...</p>
     </div>
   )
 }

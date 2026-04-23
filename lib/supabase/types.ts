@@ -25,6 +25,12 @@ export interface Database {
           website: string | null
           main_goal: string | null
           onboarding_completed: boolean
+          // Company profile
+          tax_id: string | null
+          address: string | null
+          city: string | null
+          logo_url: string | null
+          avatar_url: string | null
           created_at: string
           updated_at: string
         }
@@ -43,6 +49,12 @@ export interface Database {
           website?: string | null
           main_goal?: string | null
           onboarding_completed?: boolean
+          // Company profile
+          tax_id?: string | null
+          address?: string | null
+          city?: string | null
+          logo_url?: string | null
+          avatar_url?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -58,6 +70,12 @@ export interface Database {
           website?: string | null
           main_goal?: string | null
           onboarding_completed?: boolean
+          // Company profile
+          tax_id?: string | null
+          address?: string | null
+          city?: string | null
+          logo_url?: string | null
+          avatar_url?: string | null
           updated_at?: string
         }
         Relationships: []

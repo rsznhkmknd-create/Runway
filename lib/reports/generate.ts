@@ -14,6 +14,8 @@ type Profile = {
   currency:      string
   industry:      string | null
   business_type: string | null
+  country:       string | null
+  city:          string | null
 }
 
 type GenerateArgs = {
@@ -87,10 +89,17 @@ export async function generateReportContent(args: GenerateArgs): Promise<ReportC
   const previous = summarizeTx(args.previousTx)
   const windowDays = args.reportType === 'weekly' ? 7 : 30
 
+  const companyName = args.profile.company_name?.trim() || null
+  const companyLine = companyName
+    ? `La empresa se llama "${companyName}". Refiérete a ella SIEMPRE por este nombre (no uses "tu empresa" genérico, no lo inventes, no lo cambies).`
+    : `No se ha configurado el nombre de la empresa. Usa "tu negocio" o "la empresa" de forma genérica — NO inventes un nombre.`
+
   const userPrompt = `Genera un reporte financiero ${args.reportType === 'weekly' ? 'semanal' : 'mensual'} para esta empresa.
 
-EMPRESA:
-${JSON.stringify(args.profile)}
+${companyLine}
+
+PERFIL COMPLETO DE LA EMPRESA:
+${JSON.stringify(args.profile, null, 2)}
 
 PERÍODO ACTUAL: ${args.periodStart} → ${args.periodEnd} (${windowDays} días)
 PERÍODO ANTERIOR: ${args.previousStart} → ${args.previousEnd} (${windowDays} días)

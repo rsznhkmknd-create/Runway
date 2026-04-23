@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { Bell, Shield, CreditCard, ChevronRight } from 'lucide-react'
 import { createServiceClient } from '@/lib/supabase/server'
-import AjustesProfileForm from '@/components/dashboard/AjustesProfileForm'
+import SettingsTabs, { type ProfileData } from '@/components/settings/SettingsTabs'
 
 export const metadata: Metadata = { title: 'Ajustes' }
 
@@ -38,35 +38,41 @@ export default async function AjustesPage() {
   const user       = await currentUser()
   const supabase   = createServiceClient()
 
-  // Cargar datos del perfil desde Supabase
-  const { data: profile } = await supabase
+  const email = user?.emailAddresses?.[0]?.emailAddress ?? ''
+  const clerkFullName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ') || ''
+
+  const { data: profile, error } = await supabase
     .from('profiles')
-    .select('company_name, currency')
+    .select(
+      'id, email, full_name, company_name, tax_id, address, city, country, currency, industry, website, logo_url, avatar_url'
+    )
     .eq('clerk_id', userId!)
     .single()
 
-  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Sin nombre'
-  const email    = user?.emailAddresses?.[0]?.emailAddress ?? ''
+  if (error || !profile) {
+    throw new Error(
+      `No pudimos cargar tu perfil${error?.message ? `: ${error.message}` : ''}.`
+    )
+  }
+
+  const initialProfile: ProfileData = {
+    ...profile,
+    full_name:  profile.full_name  ?? clerkFullName ?? null,
+    avatar_url: profile.avatar_url ?? user?.imageUrl ?? null,
+  }
 
   return (
-    <div className="space-y-8 max-w-2xl">
+    <div className="space-y-8 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Ajustes</h1>
-        <p className="text-gray-500 mt-1 text-sm">Configura tu cuenta y preferencias</p>
+        <p className="text-gray-500 mt-1 text-sm">Configura tu cuenta y el perfil de tu empresa</p>
       </div>
 
-      {/* Formulario de perfil (Client Component) */}
-      <AjustesProfileForm
-        initialCompanyName={profile?.company_name ?? ''}
-        initialCurrency={profile?.currency ?? 'EUR'}
-        fullName={fullName}
-        email={email}
-        imageUrl={user?.imageUrl}
-      />
+      <SettingsTabs initialProfile={initialProfile} email={email} />
 
-      {/* Secciones de configuración */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <h2 className="font-semibold text-gray-900 px-6 pt-5 pb-3">Configuración</h2>
+        <h2 className="font-semibold text-gray-900 px-6 pt-5 pb-3">Otras configuraciones</h2>
         <div className="divide-y divide-gray-50">
           {SECTIONS.map(({ id, icon: Icon, color, iconColor, title, description }) => (
             <button
@@ -86,7 +92,6 @@ export default async function AjustesPage() {
         </div>
       </div>
 
-      {/* Zona de peligro */}
       <div className="bg-white rounded-2xl border border-red-100 p-6 shadow-sm">
         <h2 className="font-semibold text-red-600 mb-1">Zona de peligro</h2>
         <p className="text-sm text-gray-500 mb-4">

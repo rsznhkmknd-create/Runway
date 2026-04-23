@@ -101,6 +101,27 @@ create policy "reports_own" on public.reports
 
 create index idx_reports_profile_created on public.reports(profile_id, created_at desc);
 
+-- ── Extra profile fields (company profile + avatars) ──────────
+alter table public.profiles
+  add column if not exists tax_id      text,
+  add column if not exists address     text,
+  add column if not exists city        text,
+  add column if not exists logo_url    text,
+  add column if not exists avatar_url  text;
+
+-- ── Storage buckets (run once; safe to re-run) ────────────────
+insert into storage.buckets (id, name, public)
+  values ('company-logos', 'company-logos', true)
+  on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public)
+  values ('avatars', 'avatars', true)
+  on conflict (id) do nothing;
+
+-- Both buckets are public so URLs returned by the upload endpoint are
+-- viewable without signed URLs. Writes always happen through our API route
+-- using the service role key, so we don't need per-user storage policies.
+
 -- ── Auto-update updated_at ────────────────────────────────────
 create or replace function update_updated_at()
 returns trigger language plpgsql as $$

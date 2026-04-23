@@ -32,7 +32,7 @@ Reglas absolutas:
 - Si los datos muestran un problema, dilo sin suavizar.
 - Si los datos son positivos, reconócelo sin exagerar.
 
-RESPONDE ÚNICAMENTE CON JSON VÁLIDO. Sin markdown, sin prefacios, sin backticks.`
+Responde ÚNICAMENTE con JSON válido. Sin trailing commas. Sin comentarios. Sin texto adicional antes o después del JSON. Sin markdown, sin backticks, sin prefacios.`
 
 function buildUserPrompt(ctx: FinancialContext): string {
   return `Genera EXACTAMENTE 3 insights para el dashboard financiero de hoy.
@@ -89,14 +89,17 @@ export async function generateDailyInsights(
     .map((b) => (b as { type: 'text'; text: string }).text)
     .join('')
 
-  const jsonStr = text
+  // Strip markdown fences AND trailing commas before } or ] — Claude sometimes
+  // emits them even when told not to, and JSON.parse rejects them strictly.
+  const cleaned = text
     .replace(/^```(?:json)?\n?/i, '')
     .replace(/\n?```$/i, '')
+    .replace(/,(\s*[}\]])/g, '$1')
     .trim()
 
   let parsed: { insights?: unknown }
   try {
-    parsed = JSON.parse(jsonStr) as { insights?: unknown }
+    parsed = JSON.parse(cleaned) as { insights?: unknown }
   } catch (err) {
     console.error('[insights/generate] JSON parse error:', err, 'response:', text.slice(0, 500))
     throw new Error('La respuesta del modelo no es JSON válido.')

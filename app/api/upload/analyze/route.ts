@@ -14,7 +14,7 @@ const MAX_SIZE = 10 * 1024 * 1024
 
 const SYSTEM_PROMPT = `Eres un experto en análisis de datos financieros. Analizas archivos Excel/CSV con transacciones bancarias o contables y detectas la estructura independientemente de cómo estén nombradas las columnas (español, inglés, siglas, sin encabezado) o en qué orden aparezcan.
 
-RESPONDE ÚNICAMENTE CON JSON VÁLIDO. Sin explicaciones, sin markdown.`
+Responde ÚNICAMENTE con JSON válido. Sin trailing commas. Sin comentarios. Sin texto adicional antes o después del JSON. Sin markdown, sin backticks, sin prefacios.`
 
 function buildUserPrompt(columns: string[], sampleRows: Record<string, string>[]): string {
   return `Analiza este archivo financiero y devuelve el mapeo de columnas.
@@ -129,9 +129,14 @@ export async function POST(req: Request) {
       .map((b) => (b as { type: 'text'; text: string }).text)
       .join('')
 
-    const jsonStr = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim()
+    // Strip markdown fences + trailing commas before JSON.parse (strict mode).
+    const cleaned = text
+      .replace(/^```(?:json)?\n?/i, '')
+      .replace(/\n?```$/i, '')
+      .replace(/,(\s*[}\]])/g, '$1')
+      .trim()
     try {
-      mapping = JSON.parse(jsonStr) as ColumnMapping
+      mapping = JSON.parse(cleaned) as ColumnMapping
     } catch (parseErr) {
       console.error('[analyze] JSON parse error:', parseErr, 'response:', text.slice(0, 500))
       return NextResponse.json(

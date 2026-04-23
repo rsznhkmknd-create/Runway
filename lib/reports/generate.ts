@@ -39,7 +39,7 @@ Reglas absolutas:
 - Si los datos muestran riesgo, dilo claramente sin suavizarlo.
 - Si no hay datos suficientes para una conclusión, dilo explícitamente en alertas.
 
-RESPONDE ÚNICAMENTE CON JSON VÁLIDO. Sin markdown, sin prefacios, sin backticks.`
+Responde ÚNICAMENTE con JSON válido. Sin trailing commas. Sin comentarios. Sin texto adicional antes o después del JSON. Sin markdown, sin backticks, sin prefacios.`
 
 function summarizeTx(txs: Transaction[]) {
   const byCategory = new Map<string, { income: number; expense: number }>()
@@ -169,14 +169,17 @@ REGLAS DE CÁLCULO:
     .map((b) => (b as { type: 'text'; text: string }).text)
     .join('')
 
-  const jsonStr = text
+  // Strip markdown fences + trailing commas before closing } or ] — JSON.parse
+  // is strict and Claude sometimes emits them even when told not to.
+  const cleaned = text
     .replace(/^```(?:json)?\n?/i, '')
     .replace(/\n?```$/i, '')
+    .replace(/,(\s*[}\]])/g, '$1')
     .trim()
 
   let parsed: ReportContent
   try {
-    parsed = JSON.parse(jsonStr) as ReportContent
+    parsed = JSON.parse(cleaned) as ReportContent
   } catch (err) {
     console.error('[reports/generate] JSON parse error:', err, 'response:', text.slice(0, 500))
     throw new Error(

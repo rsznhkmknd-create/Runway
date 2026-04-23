@@ -7,7 +7,7 @@ const ALLOWED_MIME = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'
 
 const SYSTEM_PROMPT = `Eres un experto en análisis de facturas. Tu tarea es extraer datos estructurados de la imagen o PDF de una factura.
 
-RESPONDE ÚNICAMENTE CON JSON VÁLIDO. Sin explicaciones, sin markdown, sin texto adicional.`
+Responde ÚNICAMENTE con JSON válido. Sin trailing commas. Sin comentarios. Sin texto adicional antes o después del JSON. Sin markdown, sin backticks, sin prefacios.`
 
 const USER_PROMPT = `Analiza esta factura y extrae los siguientes datos.
 
@@ -108,12 +108,14 @@ export async function POST(req: Request) {
       .map((b) => (b as { type: 'text'; text: string }).text)
       .join('')
 
-    const jsonStr = text
+    // Strip markdown fences + trailing commas before JSON.parse (strict mode).
+    const cleaned = text
       .replace(/^```(?:json)?\n?/i, '')
       .replace(/\n?```$/i, '')
+      .replace(/,(\s*[}\]])/g, '$1')
       .trim()
 
-    extracted = JSON.parse(jsonStr) as ExtractedInvoice
+    extracted = JSON.parse(cleaned) as ExtractedInvoice
   } catch (err) {
     console.error('[invoices/extract] Claude error:', err)
     return NextResponse.json(

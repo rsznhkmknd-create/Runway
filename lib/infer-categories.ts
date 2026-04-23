@@ -2,7 +2,7 @@ import { anthropic } from './claude'
 
 const SYSTEM_PROMPT = `Eres un asistente financiero. Categorizas transacciones con nombres cortos en español.
 
-RESPONDE ÚNICAMENTE CON JSON VÁLIDO. Sin explicaciones, sin markdown, sin texto adicional.`
+Responde ÚNICAMENTE con JSON válido. Sin trailing commas. Sin comentarios. Sin texto adicional antes o después del JSON. Sin markdown, sin backticks, sin prefacios.`
 
 const CATEGORIES_HINT = [
   'Alimentación', 'Transporte', 'Vivienda', 'Servicios', 'Salud',
@@ -47,8 +47,13 @@ Responde SOLO con un array JSON del mismo largo (${slice.length}), sin markdown:
         .map((b) => (b as { type: 'text'; text: string }).text)
         .join('')
 
-      const jsonStr = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim()
-      const cats = JSON.parse(jsonStr) as unknown
+      // Strip markdown fences + trailing commas before JSON.parse (strict mode).
+      const cleaned = text
+        .replace(/^```(?:json)?\n?/i, '')
+        .replace(/\n?```$/i, '')
+        .replace(/,(\s*[}\]])/g, '$1')
+        .trim()
+      const cats = JSON.parse(cleaned) as unknown
       if (Array.isArray(cats)) {
         for (let j = 0; j < slice.length; j++) {
           const c = cats[j]

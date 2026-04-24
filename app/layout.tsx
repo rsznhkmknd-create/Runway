@@ -1,8 +1,16 @@
 import type { Metadata } from 'next'
+import { DM_Sans } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import { ToastProvider } from '@/components/ui/Toast'
 import { ThemeProvider, THEME_INIT_SCRIPT } from '@/components/ui/ThemeProvider'
 import './globals.css'
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-dm-sans',
+})
 
 export const metadata: Metadata = {
   title: {
@@ -21,7 +29,7 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="es" suppressHydrationWarning>
+      <html lang="es" className={dmSans.className} suppressHydrationWarning>
         <head>
           {/* Runs BEFORE hydration — sets `.dark` on <html> from localStorage
               to prevent a theme flash on first paint. */}

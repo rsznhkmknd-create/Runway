@@ -62,6 +62,5 @@ export function BlurFade({
     willChange: 'opacity, filter, transform',
   }
 
-  // @ts-expect-error — intentional polymorphic tag
   return <Tag ref={ref} style={style} className={className}>{children}</Tag>
 }

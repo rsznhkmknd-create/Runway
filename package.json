@@ -13,6 +13,8 @@
     "@clerk/nextjs": "^5.0.0",
     "@supabase/ssr": "^0.4.0",
     "@supabase/supabase-js": "^2.43.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.37.0",
     "autoprefixer": "^10.5.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
@@ -24,12 +26,15 @@
     "resend": "^3.2.0",
     "svix": "^1.90.0",
     "tailwind-merge": "^2.3.0",
-    "xlsx": "^0.18.5"
+    "ua-parser-js": "^2.0.9",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/ua-parser-js": "^0.7.39",
     "eslint": "^8",
     "eslint-config-next": "14.2.3",
     "postcss": "^8",

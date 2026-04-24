@@ -3,6 +3,9 @@ import { auth } from '@clerk/nextjs/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { periodsFor } from '@/lib/reports/period'
 import { generateReportContent } from '@/lib/reports/generate'
+import { incrementUsage } from '@/lib/usage'
+import { withRateLimit } from '@/lib/api/with-rate-limit'
+import { aiLimiter } from '@/lib/ratelimit'
 import type { ReportType } from '@/lib/reports/types'
 
 async function getProfile(userId: string) {
@@ -15,7 +18,7 @@ async function getProfile(userId: string) {
   return data
 }
 
-export async function GET() {
+export const GET = withRateLimit(async () => {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
@@ -31,9 +34,9 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ reports: data ?? [] })
-}
+})
 
-export async function POST(request: Request) {
+export const POST = withRateLimit(async (request) => {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
@@ -161,5 +164,8 @@ export async function POST(request: Request) {
     )
   }
 
+  // Contabilizar el reporte generado (best-effort).
+  void incrementUsage(profile.id, 'reports_count')
+
   return NextResponse.json({ report: inserted }, { status: 201 })
-}
+}, aiLimiter)

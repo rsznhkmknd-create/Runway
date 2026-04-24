@@ -6,6 +6,23 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+export type NotificationSettings = {
+  runway_low: boolean
+  invoices_overdue: boolean
+  weekly_summary: boolean
+  monthly_summary: boolean
+  expense_spike: boolean
+}
+
+export type PlanTier = 'starter' | 'growth' | 'pro'
+
+export type ActivityEventType =
+  | 'session.created'
+  | 'session.ended'
+  | 'session.revoked'
+  | 'account.export'
+  | 'account.delete_requested'
+
 export interface Database {
   public: {
     Tables: {
@@ -31,6 +48,12 @@ export interface Database {
           city: string | null
           logo_url: string | null
           avatar_url: string | null
+          // Notifications
+          notification_settings: NotificationSettings
+          // Plan
+          plan: PlanTier
+          plan_started_at: string
+          plan_renews_at: string | null
           created_at: string
           updated_at: string
         }
@@ -41,7 +64,6 @@ export interface Database {
           full_name?: string | null
           company_name?: string | null
           currency?: string
-          // Onboarding
           industry?: string | null
           country?: string | null
           employee_count?: string | null
@@ -49,12 +71,15 @@ export interface Database {
           website?: string | null
           main_goal?: string | null
           onboarding_completed?: boolean
-          // Company profile
           tax_id?: string | null
           address?: string | null
           city?: string | null
           logo_url?: string | null
           avatar_url?: string | null
+          notification_settings?: NotificationSettings
+          plan?: PlanTier
+          plan_started_at?: string
+          plan_renews_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -62,7 +87,6 @@ export interface Database {
           full_name?: string | null
           company_name?: string | null
           currency?: string
-          // Onboarding
           industry?: string | null
           country?: string | null
           employee_count?: string | null
@@ -70,12 +94,15 @@ export interface Database {
           website?: string | null
           main_goal?: string | null
           onboarding_completed?: boolean
-          // Company profile
           tax_id?: string | null
           address?: string | null
           city?: string | null
           logo_url?: string | null
           avatar_url?: string | null
+          notification_settings?: NotificationSettings
+          plan?: PlanTier
+          plan_started_at?: string
+          plan_renews_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -148,6 +175,154 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: 'invoices_profile_id_fkey'
+            columns: ['profile_id']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      reports: {
+        Row: {
+          id: string
+          profile_id: string
+          type: 'weekly' | 'monthly'
+          period_start: string
+          period_end: string
+          content: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          type: 'weekly' | 'monthly'
+          period_start: string
+          period_end: string
+          content: Json
+          created_at?: string
+        }
+        Update: {
+          type?: 'weekly' | 'monthly'
+          period_start?: string
+          period_end?: string
+          content?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'reports_profile_id_fkey'
+            columns: ['profile_id']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      daily_insights: {
+        Row: {
+          id: string
+          profile_id: string
+          date: string
+          insights: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          date: string
+          insights: Json
+          created_at?: string
+        }
+        Update: {
+          date?: string
+          insights?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'daily_insights_profile_id_fkey'
+            columns: ['profile_id']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      usage_counters: {
+        Row: {
+          id: string
+          profile_id: string
+          period_start: string
+          imports_count: number
+          ai_invoices_count: number
+          reports_count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          period_start: string
+          imports_count?: number
+          ai_invoices_count?: number
+          reports_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          imports_count?: number
+          ai_invoices_count?: number
+          reports_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'usage_counters_profile_id_fkey'
+            columns: ['profile_id']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      activity_logs: {
+        Row: {
+          id: string
+          profile_id: string
+          clerk_user_id: string
+          clerk_session_id: string | null
+          event_type: ActivityEventType
+          ip_address: string | null
+          country: string | null
+          city: string | null
+          device_type: string | null
+          browser: string | null
+          os: string | null
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          clerk_user_id: string
+          clerk_session_id?: string | null
+          event_type: ActivityEventType
+          ip_address?: string | null
+          country?: string | null
+          city?: string | null
+          device_type?: string | null
+          browser?: string | null
+          os?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Update: {
+          event_type?: ActivityEventType
+          ip_address?: string | null
+          country?: string | null
+          city?: string | null
+          device_type?: string | null
+          browser?: string | null
+          os?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'activity_logs_profile_id_fkey'
             columns: ['profile_id']
             referencedRelation: 'profiles'
             referencedColumns: ['id']

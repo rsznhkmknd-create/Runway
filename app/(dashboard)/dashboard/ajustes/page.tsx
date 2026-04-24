@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { Bell, Shield, CreditCard, ChevronRight } from 'lucide-react'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -8,7 +9,7 @@ export const metadata: Metadata = { title: 'Ajustes' }
 
 const SECTIONS = [
   {
-    id:          'notificaciones',
+    href:        '/dashboard/ajustes/notificaciones',
     icon:        Bell,
     color:       'bg-amber-50',
     iconColor:   'text-amber-600',
@@ -16,20 +17,20 @@ const SECTIONS = [
     description: 'Alertas de runway bajo, facturas vencidas y resúmenes semanales',
   },
   {
-    id:          'seguridad',
+    href:        '/dashboard/ajustes/seguridad',
     icon:        Shield,
     color:       'bg-blue-50',
     iconColor:   'text-blue-600',
     title:       'Seguridad',
-    description: 'Contraseña, autenticación en dos pasos y sesiones activas',
+    description: 'Sesiones activas, 2FA, actividad reciente y exportación de datos',
   },
   {
-    id:          'facturacion',
+    href:        '/dashboard/ajustes/plan',
     icon:        CreditCard,
     color:       'bg-purple-50',
     iconColor:   'text-purple-600',
     title:       'Plan y facturación',
-    description: 'Plan actual, límites, historial de pagos y métodos de pago',
+    description: 'Plan actual, límites de uso y cambios de plan',
   },
 ]
 
@@ -74,9 +75,10 @@ export default async function AjustesPage() {
       <div className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden">
         <h2 className="font-semibold text-text-primary px-6 pt-5 pb-3">Otras configuraciones</h2>
         <div className="divide-y divide-border">
-          {SECTIONS.map(({ id, icon: Icon, color, iconColor, title, description }) => (
-            <button
-              key={id}
+          {SECTIONS.map(({ href, icon: Icon, color, iconColor, title, description }) => (
+            <Link
+              key={href}
+              href={href}
               className="w-full flex items-center gap-4 px-6 py-4 hover:bg-surface-2 transition-colors text-left"
             >
               <div className={`w-10 h-10 ${color} rounded-xl flex items-center justify-center shrink-0`}>
@@ -87,23 +89,8 @@ export default async function AjustesPage() {
                 <p className="text-xs text-text-muted mt-0.5">{description}</p>
               </div>
               <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
-            </button>
+            </Link>
           ))}
-        </div>
-      </div>
-
-      <div className="bg-surface rounded-2xl border border-red-100 p-6 shadow-sm">
-        <h2 className="font-semibold text-red-600 mb-1">Zona de peligro</h2>
-        <p className="text-sm text-text-muted mb-4">
-          Estas acciones son irreversibles. Procede con cautela.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button className="text-sm font-medium text-red-500 border border-red-200 px-4 py-2 rounded-xl hover:bg-red-50 transition-colors">
-            Exportar todos mis datos
-          </button>
-          <button className="text-sm font-medium text-red-600 border border-red-200 px-4 py-2 rounded-xl hover:bg-red-50 transition-colors">
-            Eliminar cuenta
-          </button>
         </div>
       </div>
     </div>

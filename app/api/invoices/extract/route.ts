@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { anthropic } from '@/lib/claude'
+import { getProfileId } from '@/lib/supabase/profile'
+import { incrementUsage } from '@/lib/usage'
+import { withRateLimit } from '@/lib/api/with-rate-limit'
+import { aiLimiter } from '@/lib/ratelimit'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_MIME = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif']
@@ -36,10 +40,15 @@ type ExtractedInvoice = {
   confidence: 'alto' | 'medio' | 'bajo'
 }
 
-export async function POST(req: Request) {
+export const POST = withRateLimit(async (req) => {
   const { userId } = await auth()
   if (!userId) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+  }
+
+  const profileId = await getProfileId(userId)
+  if (!profileId) {
+    return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 })
   }
 
   let formData: FormData
@@ -126,5 +135,8 @@ export async function POST(req: Request) {
     )
   }
 
+  // Contabilizar uso (best-effort, no bloquea la respuesta si falla)
+  void incrementUsage(profileId, 'ai_invoices_count')
+
   return NextResponse.json({ extracted })
-}
+}, aiLimiter)

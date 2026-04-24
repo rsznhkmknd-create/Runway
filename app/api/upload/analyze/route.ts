@@ -8,6 +8,8 @@ import {
   type NormalizedTransaction,
 } from '@/lib/normalize-transactions'
 import { inferCategoriesFromDescriptions } from '@/lib/infer-categories'
+import { withRateLimit } from '@/lib/api/with-rate-limit'
+import { aiLimiter } from '@/lib/ratelimit'
 
 const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.ods']
 const MAX_SIZE = 10 * 1024 * 1024
@@ -53,7 +55,7 @@ REGLAS:
 - El archivo es VÁLIDO si existe una columna de monto o un par débito/crédito. La fecha es opcional.`
 }
 
-export async function POST(req: Request) {
+export const POST = withRateLimit(async (req: Request) => {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
@@ -211,4 +213,4 @@ export async function POST(req: Request) {
     mapping,
     warnings,
   })
-}
+}, aiLimiter)

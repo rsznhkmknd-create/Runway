@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { withRateLimit } from '@/lib/api/with-rate-limit'
 
 // Whitelist of fields the client is allowed to patch via this endpoint.
 // `email`, `clerk_id`, `onboarding_completed`, `id`, `created_at` are
@@ -24,7 +25,7 @@ type EditableField = typeof EDITABLE_STRING_FIELDS[number]
 const ALLOWED_CURRENCIES = ['EUR', 'CLP', 'MXN', 'COP', 'ARS', 'USD', 'GBP']
 const ALLOWED_COUNTRIES  = ['espana', 'chile', 'mexico', 'colombia', 'argentina', 'otro']
 
-export async function GET() {
+export const GET = withRateLimit(async () => {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
@@ -39,9 +40,9 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ profile: data })
-}
+})
 
-export async function PATCH(request: Request) {
+export const PATCH = withRateLimit(async (request) => {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
@@ -106,4 +107,4 @@ export async function PATCH(request: Request) {
   }
 
   return NextResponse.json({ profile: data })
-}
+})

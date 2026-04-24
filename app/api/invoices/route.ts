@@ -1,18 +1,10 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getProfileId } from '@/lib/supabase/profile'
+import { withRateLimit } from '@/lib/api/with-rate-limit'
 
-async function getProfileId(userId: string) {
-  const supabase = createServiceClient()
-  const { data } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('clerk_id', userId)
-    .single()
-  return data?.id ?? null
-}
-
-export async function GET() {
+export const GET = withRateLimit(async () => {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
@@ -29,9 +21,9 @@ export async function GET() {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ invoices: data ?? [] })
-}
+})
 
-export async function POST(request: Request) {
+export const POST = withRateLimit(async (request) => {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
@@ -71,4 +63,4 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json(data, { status: 201 })
-}
+})

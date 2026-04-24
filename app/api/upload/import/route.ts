@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { incrementUsage } from '@/lib/usage'
+import { withRateLimit } from '@/lib/api/with-rate-limit'
+import { aiLimiter } from '@/lib/ratelimit'
 import type { NormalizedTransaction } from '@/lib/normalize-transactions'
 
 interface ImportBody {
@@ -20,7 +23,7 @@ function isValidTransaction(t: unknown): t is NormalizedTransaction {
   )
 }
 
-export async function POST(req: Request) {
+export const POST = withRateLimit(async (req) => {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
@@ -94,5 +97,8 @@ export async function POST(req: Request) {
     inserted += chunk.length
   }
 
+  // Contabilizar la operación de import (una por POST, no por transacción).
+  void incrementUsage(profileId, 'imports_count')
+
   return NextResponse.json({ inserted, total: validTx.length })
-}
+}, aiLimiter)

@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { generateDailyInsights, type FinancialContext } from '@/lib/insights/generate'
 import { safeNumber, isValidDate, todayIso } from '@/lib/safe'
+import { withRateLimit } from '@/lib/api/with-rate-limit'
 import type { DailyInsightsRow, Insight } from '@/lib/insights/types'
 
 const MIN_TRANSACTIONS_FOR_INSIGHTS = 5
@@ -103,7 +104,7 @@ function buildContext(
   }
 }
 
-export async function GET() {
+export const GET = withRateLimit(async () => {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
@@ -219,4 +220,4 @@ export async function GET() {
     hasData:  true,
     cached:   false,
   })
-}
+})

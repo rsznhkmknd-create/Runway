@@ -1,9 +1,10 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { withRateLimit } from '@/lib/api/with-rate-limit'
 import type { Database } from '@/lib/supabase/types'
 
-export async function POST(request: Request) {
+export const POST = withRateLimit(async (request) => {
   const { userId } = await auth()
   if (!userId) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
@@ -83,4 +84,4 @@ export async function POST(request: Request) {
   console.log('[onboarding] upsert exitoso, filas afectadas:', JSON.stringify(data))
 
   return NextResponse.json({ success: true })
-}
+})

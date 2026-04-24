@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { withRateLimit } from '@/lib/api/with-rate-limit'
 
 const MAX_SIZE = 5 * 1024 * 1024 // 5 MB
 const ALLOWED_MIME = [
@@ -30,7 +31,7 @@ function extensionFor(mime: string, fallback: string): string {
   return map[mime] ?? fallback
 }
 
-export async function POST(request: Request) {
+export const POST = withRateLimit(async (request) => {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
@@ -126,4 +127,4 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ url, kind })
-}
+})

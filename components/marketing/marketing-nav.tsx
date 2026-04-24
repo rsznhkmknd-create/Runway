@@ -17,7 +17,7 @@ export function MarketingNav() {
   return (
     <nav
       className={[
-        'sticky top-0 z-30 transition-all duration-300 ease-out',
+        'transition-all duration-300 ease-out',
         scrolled
           ? 'backdrop-blur-xl bg-[#111827]/75 border-b border-white/[0.07] shadow-[0_1px_0_0_rgba(255,255,255,0.02)]'
           : 'backdrop-blur-0 bg-transparent border-b border-transparent',

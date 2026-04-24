@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { Marquee } from './marquee'
 import { BlurFade } from './blur-fade'
+import { DashboardMockup } from './dashboard-mockup'
 
 type Feature = {
   icon: LucideIcon
@@ -124,7 +125,12 @@ export function FeaturesMarquee() {
         </BlurFade>
       </div>
 
-      <BlurFade inView delay={320} className="relative">
+      {/* Abstract dashboard mockup — navy/mint, floating */}
+      <BlurFade inView delay={320} className="mb-20 px-6">
+        <DashboardMockup />
+      </BlurFade>
+
+      <BlurFade inView delay={420} className="relative">
         {/* Edge fades */}
         <div className="pointer-events-none absolute inset-y-0 left-0 w-28 sm:w-40 z-10 bg-gradient-to-r from-[#111827] to-transparent" />
         <div className="pointer-events-none absolute inset-y-0 right-0 w-28 sm:w-40 z-10 bg-gradient-to-l from-[#111827] to-transparent" />

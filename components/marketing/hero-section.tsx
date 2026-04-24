@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { BlurFade } from './blur-fade'
+import { RotatingStats } from './rotating-stats'
+import { SocialProof } from './social-proof'
 import FinsightLogo from '@/components/ui/FinsightLogo'
 
 export function HeroSection() {
@@ -48,10 +50,10 @@ export function HeroSection() {
         {/* 3 — Title */}
         <BlurFade delay={300}>
           <h1 className="text-[44px] sm:text-6xl md:text-[72px] font-semibold tracking-[-0.035em] leading-[0.98] text-white">
-            Tu CFO digital,
+            Tu empresa,
             <br />
             <span className="bg-gradient-to-r from-[#00C48C] via-[#2ed087] to-[#00C48C] bg-clip-text text-transparent">
-              a €29 al mes.
+              en números reales.
             </span>
           </h1>
         </BlurFade>
@@ -65,9 +67,16 @@ export function HeroSection() {
           </p>
         </BlurFade>
 
-        {/* 5 — CTAs */}
-        <BlurFade delay={660}>
-          <div className="mt-11 flex flex-col sm:flex-row gap-3 justify-center items-center">
+        {/* 5 — Rotating stats ticker */}
+        <BlurFade delay={640}>
+          <div className="mt-8 flex justify-center">
+            <RotatingStats />
+          </div>
+        </BlurFade>
+
+        {/* 6 — CTAs */}
+        <BlurFade delay={800}>
+          <div className="mt-9 flex flex-col sm:flex-row gap-3 justify-center items-center">
             <Link
               href="/sign-up"
               className="group inline-flex items-center gap-2 bg-[#00C48C] hover:bg-[#00a374] text-[#07160E] font-semibold px-6 py-3.5 rounded-xl transition-all duration-200 text-[14px] shadow-[0_10px_40px_-10px_rgba(0,196,140,0.55)] active:scale-[0.97]"
@@ -84,7 +93,14 @@ export function HeroSection() {
           </div>
         </BlurFade>
 
-        <BlurFade delay={820}>
+        {/* 7 — Social proof */}
+        <BlurFade delay={960}>
+          <div className="mt-8 flex justify-center">
+            <SocialProof />
+          </div>
+        </BlurFade>
+
+        <BlurFade delay={1120}>
           <p className="mt-7 text-[12px] text-white/35 tracking-wide">
             Sin tarjeta · Cancela cuando quieras · Datos cifrados
           </p>

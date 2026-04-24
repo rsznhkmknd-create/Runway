@@ -24,9 +24,17 @@ export function HeroSection() {
         }}
       />
 
-      <div className="relative max-w-4xl mx-auto px-6 pt-24 pb-28 sm:pt-32 sm:pb-36 text-center">
+      <div className="relative max-w-4xl mx-auto px-6 pt-24 pb-28 sm:pt-28 sm:pb-36 text-center">
+        {/* 1 — Logo */}
         <BlurFade delay={0}>
-          <div className="flex justify-center mb-10">
+          <div className="flex justify-center mb-8">
+            <FinsightLogo size={56} />
+          </div>
+        </BlurFade>
+
+        {/* 2 — Pill status (micro-credibility) */}
+        <BlurFade delay={140}>
+          <div className="flex justify-center mb-9">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3.5 py-1.5 text-[12px] font-medium text-white/70">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-[#00C48C] opacity-75 animate-ping" />
@@ -37,7 +45,8 @@ export function HeroSection() {
           </div>
         </BlurFade>
 
-        <BlurFade delay={120}>
+        {/* 3 — Title */}
+        <BlurFade delay={300}>
           <h1 className="text-[44px] sm:text-6xl md:text-[72px] font-semibold tracking-[-0.035em] leading-[0.98] text-white">
             Tu CFO digital,
             <br />
@@ -47,7 +56,8 @@ export function HeroSection() {
           </h1>
         </BlurFade>
 
-        <BlurFade delay={280}>
+        {/* 4 — Subtitle */}
+        <BlurFade delay={480}>
           <p className="mt-7 text-[17px] sm:text-[19px] text-white/55 max-w-[560px] mx-auto leading-[1.55] font-normal">
             Runway, burn rate, facturas e insights en un solo sitio.
             Claude analiza tus números cada día para que tomes decisiones
@@ -55,34 +65,29 @@ export function HeroSection() {
           </p>
         </BlurFade>
 
-        <BlurFade delay={440}>
+        {/* 5 — CTAs */}
+        <BlurFade delay={660}>
           <div className="mt-11 flex flex-col sm:flex-row gap-3 justify-center items-center">
             <Link
               href="/sign-up"
-              className="group inline-flex items-center gap-2 bg-[#00C48C] hover:bg-[#00a374] text-[#07160E] font-semibold px-6 py-3.5 rounded-xl transition-all text-[14px] shadow-[0_10px_40px_-10px_rgba(0,196,140,0.55)]"
+              className="group inline-flex items-center gap-2 bg-[#00C48C] hover:bg-[#00a374] text-[#07160E] font-semibold px-6 py-3.5 rounded-xl transition-all duration-200 text-[14px] shadow-[0_10px_40px_-10px_rgba(0,196,140,0.55)] active:scale-[0.97]"
             >
               Empezar gratis 30 días
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
             <Link
               href="#features"
-              className="text-[14px] font-medium text-white/75 hover:text-white transition-colors px-5 py-3.5 rounded-xl border border-white/[0.08] hover:border-white/15 bg-white/[0.02]"
+              className="text-[14px] font-medium text-white/75 hover:text-white transition-colors duration-200 px-5 py-3.5 rounded-xl border border-white/[0.08] hover:border-white/15 bg-white/[0.02] active:scale-[0.97]"
             >
               Ver cómo funciona
             </Link>
           </div>
         </BlurFade>
 
-        <BlurFade delay={600}>
+        <BlurFade delay={820}>
           <p className="mt-7 text-[12px] text-white/35 tracking-wide">
             Sin tarjeta · Cancela cuando quieras · Datos cifrados
           </p>
-        </BlurFade>
-
-        <BlurFade delay={780}>
-          <div className="mt-20 flex justify-center">
-            <FinsightLogo size={44} />
-          </div>
         </BlurFade>
       </div>
     </section>

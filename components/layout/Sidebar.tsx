@@ -60,20 +60,28 @@ export default function Sidebar({ companyName }: Props = {}) {
               key={href}
               href={href}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                'group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out active:scale-[0.98]',
                 active
                   ? 'bg-surface-2 text-text-primary'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-2/60'
               )}
             >
+              {/* Mint active-indicator bar — grows in from the left */}
+              <span
+                aria-hidden
+                className={cn(
+                  'absolute left-0 top-1/2 -translate-y-1/2 w-0.5 rounded-r-full bg-brand-600 transition-all duration-300 ease-out',
+                  active ? 'h-5 opacity-100' : 'h-0 opacity-0'
+                )}
+              />
               <Icon
                 className={cn(
-                  'w-4 h-4 shrink-0',
-                  active ? 'text-brand-600' : 'text-text-muted'
+                  'w-4 h-4 shrink-0 transition-colors duration-200 ease-out',
+                  active ? 'text-brand-600' : 'text-text-muted group-hover:text-text-secondary'
                 )}
                 strokeWidth={1.75}
               />
-              <span>{label}</span>
+              <span className="transition-colors duration-200 ease-out">{label}</span>
             </Link>
           )
         })}

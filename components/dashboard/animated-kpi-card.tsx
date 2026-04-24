@@ -85,7 +85,7 @@ export function AnimatedKpiCard({
   decimals = 0,
   children,
 }: AnimatedKpiCardProps) {
-  const count = useCountUp(value, 1100, decimals)
+  const count = useCountUp(value, 1500, decimals)
   const display = formatted ?? `${prefix ?? ''}${count}${suffix ? ` ${suffix}` : ''}`
 
   const effectiveTrend: Trend =

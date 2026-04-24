@@ -1,3 +1,6 @@
+'use client'
+
+import { useRef, type MouseEvent } from 'react'
 import {
   TrendingUp,
   FileSpreadsheet,
@@ -51,15 +54,50 @@ const FEATURES: Feature[] = [
 
 function FeatureCard({ feature }: { feature: Feature }) {
   const { icon: Icon, title, description } = feature
+  const ref = useRef<HTMLDivElement | null>(null)
+
+  // Cursor-tracking radial glow, Linear-style
+  const onMove = (e: MouseEvent<HTMLDivElement>) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    el.style.setProperty('--fs-x', `${e.clientX - rect.left}px`)
+    el.style.setProperty('--fs-y', `${e.clientY - rect.top}px`)
+  }
+
   return (
-    <div className="w-[340px] sm:w-[380px] shrink-0 rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-white/[0.01] p-6 transition-colors hover:border-[#00C48C]/25">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-9 h-9 rounded-lg bg-[#00C48C]/12 border border-[#00C48C]/18 flex items-center justify-center text-[#00C48C]">
-          <Icon className="w-[18px] h-[18px]" strokeWidth={2} />
+    <div
+      ref={ref}
+      onMouseMove={onMove}
+      className="group relative w-[340px] sm:w-[380px] shrink-0 overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-white/[0.01] p-6 transition-all duration-300 ease-out hover:border-[#00C48C]/30 hover:-translate-y-0.5"
+    >
+      {/* cursor-follow glow */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{
+          background:
+            'radial-gradient(360px circle at var(--fs-x, 50%) var(--fs-y, 50%), rgba(0,196,140,0.14), transparent 45%)',
+        }}
+      />
+      {/* subtle border glow */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{
+          boxShadow:
+            '0 0 0 1px rgba(0,196,140,0.18), 0 20px 60px -20px rgba(0,196,140,0.28)',
+        }}
+      />
+      <div className="relative">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-lg bg-[#00C48C]/12 border border-[#00C48C]/18 flex items-center justify-center text-[#00C48C] transition-colors duration-300 group-hover:bg-[#00C48C]/20">
+            <Icon className="w-[18px] h-[18px]" strokeWidth={2} />
+          </div>
+          <h3 className="font-semibold text-[15px] tracking-tight text-white">{title}</h3>
         </div>
-        <h3 className="font-semibold text-[15px] tracking-tight text-white">{title}</h3>
+        <p className="text-[13.5px] text-white/55 leading-[1.55] transition-colors duration-300 group-hover:text-white/70">{description}</p>
       </div>
-      <p className="text-[13.5px] text-white/55 leading-[1.55]">{description}</p>
     </div>
   )
 }

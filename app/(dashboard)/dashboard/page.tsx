@@ -13,6 +13,7 @@ import { getCompanyProfile, isProfileComplete } from '@/lib/supabase/company-pro
 import { safeNumber, isValidDate, todayIso } from '@/lib/safe'
 import DailyInsights from '@/components/dashboard/DailyInsights'
 import { KpiBento } from '@/components/dashboard/kpi-bento'
+import { ChartReveal } from '@/components/dashboard/chart-reveal'
 import type { Insight } from '@/lib/insights/types'
 
 export const metadata: Metadata = { title: 'Dashboard' }
@@ -313,12 +314,12 @@ export default async function DashboardPage() {
 
       {/* Charts + Table */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2">
+        <ChartReveal delay={120} className="lg:col-span-2">
           <CashFlowChart data={cashFlowData} currency={currency} />
-        </div>
-        <div>
+        </ChartReveal>
+        <ChartReveal delay={240}>
           <RecentTransactions transactions={recentTxs} currency={currency} />
-        </div>
+        </ChartReveal>
       </div>
     </div>
   )

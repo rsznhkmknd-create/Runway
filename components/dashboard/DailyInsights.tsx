@@ -106,7 +106,7 @@ export default function DailyInsights({ initial }: Props) {
       {!loading && !error && data && data.insights.length > 0 && (
         <ul className="space-y-3">
           {data.insights.map((insight, i) => (
-            <InsightRow key={i} insight={insight} />
+            <InsightRow key={i} insight={insight} index={i} />
           ))}
         </ul>
       )}
@@ -114,10 +114,26 @@ export default function DailyInsights({ initial }: Props) {
   )
 }
 
-function InsightRow({ insight }: { insight: Insight }) {
+function InsightRow({ insight, index }: { insight: Insight; index: number }) {
   const { Icon, color } = SEVERITY[insight.severity]
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const id = setTimeout(() => setVisible(true), 80 + index * 140)
+    return () => clearTimeout(id)
+  }, [index])
+
   return (
-    <li className="flex items-start gap-3">
+    <li
+      className="flex items-start gap-3"
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(6px)',
+        filter: visible ? 'blur(0)' : 'blur(4px)',
+        transition:
+          'opacity 500ms cubic-bezier(0.22,1,0.36,1), transform 500ms cubic-bezier(0.22,1,0.36,1), filter 500ms cubic-bezier(0.22,1,0.36,1)',
+      }}
+    >
       <Icon
         className={cn('w-4 h-4 mt-0.5 shrink-0', color)}
         strokeWidth={2}

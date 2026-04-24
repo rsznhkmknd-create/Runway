@@ -65,8 +65,8 @@ export function PricingSection() {
                 <div
                   className={
                     featured
-                      ? 'relative h-full rounded-2xl border border-[#00C48C]/40 bg-gradient-to-b from-[#00C48C]/[0.06] to-[#00C48C]/[0.015] p-7 flex flex-col shadow-[0_0_0_1px_rgba(0,196,140,0.15),0_20px_60px_-20px_rgba(0,196,140,0.35)]'
-                      : 'relative h-full rounded-2xl border border-white/[0.07] bg-white/[0.02] p-7 flex flex-col'
+                      ? 'group relative h-full rounded-2xl border border-[#00C48C]/40 bg-gradient-to-b from-[#00C48C]/[0.06] to-[#00C48C]/[0.015] p-7 flex flex-col shadow-[0_0_0_1px_rgba(0,196,140,0.15),0_20px_60px_-20px_rgba(0,196,140,0.35)] transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-[0_0_0_1px_rgba(0,196,140,0.22),0_30px_80px_-20px_rgba(0,196,140,0.5)]'
+                      : 'group relative h-full rounded-2xl border border-white/[0.07] bg-white/[0.02] p-7 flex flex-col transition-all duration-300 ease-out hover:-translate-y-1.5 hover:border-white/20 hover:bg-white/[0.035] hover:shadow-[0_25px_60px_-20px_rgba(0,0,0,0.5)]'
                   }
                 >
                   {featured && (
@@ -112,8 +112,8 @@ export function PricingSection() {
                     href="/sign-up"
                     className={
                       featured
-                        ? 'block text-center text-[13.5px] font-semibold bg-[#00C48C] hover:bg-[#00a374] text-[#07160E] px-5 py-3 rounded-xl transition-colors'
-                        : 'block text-center text-[13.5px] font-semibold bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-white px-5 py-3 rounded-xl transition-colors'
+                        ? 'block text-center text-[13.5px] font-semibold bg-[#00C48C] hover:bg-[#00a374] text-[#07160E] px-5 py-3 rounded-xl transition-all duration-200 active:scale-[0.97]'
+                        : 'block text-center text-[13.5px] font-semibold bg-white/[0.04] hover:bg-white/[0.1] border border-white/[0.08] hover:border-white/20 text-white px-5 py-3 rounded-xl transition-all duration-200 active:scale-[0.97]'
                     }
                   >
                     Empezar con {PLAN_LABELS[plan]}

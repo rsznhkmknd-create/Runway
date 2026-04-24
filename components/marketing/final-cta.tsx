@@ -32,10 +32,19 @@ export function FinalCTA() {
           <div className="mt-10">
             <Link
               href="/sign-up"
-              className="group inline-flex items-center gap-2 bg-[#00C48C] hover:bg-[#00a374] text-[#07160E] font-semibold px-6 py-3.5 rounded-xl transition-all text-[14px] shadow-[0_10px_40px_-10px_rgba(0,196,140,0.55)]"
+              className="group relative inline-flex items-center gap-2 overflow-hidden bg-[#00C48C] hover:bg-[#00a374] text-[#07160E] font-semibold px-6 py-3.5 rounded-xl transition-all duration-200 text-[14px] shadow-[0_10px_40px_-10px_rgba(0,196,140,0.55)] hover:shadow-[0_14px_50px_-8px_rgba(0,196,140,0.7)] active:scale-[0.97]"
             >
-              Empezar gratis 30 días
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              {/* Shimmer — sweeps across on hover */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+                style={{
+                  background:
+                    'linear-gradient(110deg, transparent 25%, rgba(255,255,255,0.55) 50%, transparent 75%)',
+                }}
+              />
+              <span className="relative z-10">Empezar gratis 30 días</span>
+              <ArrowRight className="relative z-10 w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
           </div>
         </BlurFade>

@@ -40,9 +40,11 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       className={cn(
-        'inline-flex items-center justify-center gap-2 font-semibold transition-colors',
+        'inline-flex items-center justify-center gap-2 font-semibold',
+        'transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out',
+        'active:scale-[0.97] active:transition-[transform] active:duration-75',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-0',
-        'disabled:pointer-events-none disabled:opacity-50',
+        'disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100',
         variants[variant],
         sizes[size],
         className

@@ -81,6 +81,30 @@ export default function ReportView({ report }: Props) {
         </button>
       </div>
 
+      {/* Company header — visible en pantalla y al imprimir */}
+      {(c.company_name || c.logo_url) && (
+        <div className="flex items-center gap-3 pb-4 border-b border-border print:border-b-2 print:border-[#111827]">
+          {c.logo_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={c.logo_url}
+              alt={c.company_name ?? 'Logo'}
+              className="w-10 h-10 rounded-lg object-contain border border-border bg-surface print:w-12 print:h-12"
+            />
+          )}
+          <div className="flex-1 min-w-0">
+            {c.company_name && (
+              <p className="text-sm font-semibold text-text-primary leading-tight truncate">
+                {c.company_name}
+              </p>
+            )}
+            <p className="text-xs text-text-muted leading-tight mt-0.5">
+              {report.type === 'weekly' ? 'Reporte semanal' : 'Reporte mensual'} · {period}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Hero — navy block with exec summary */}
       <div className="bg-[#111827] text-white rounded-2xl p-8 print:rounded-none">
         <div className="flex items-center gap-2 text-xs font-semibold text-[#00C48C] mb-3">
@@ -89,7 +113,9 @@ export default function ReportView({ report }: Props) {
           <span className="text-white/40">·</span>
           <span className="text-white/60">{period}</span>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight mb-4">Resumen ejecutivo</h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-4">
+          {c.company_name ? `${c.company_name} — Resumen ejecutivo` : 'Resumen ejecutivo'}
+        </h1>
         <p className="text-white/80 text-base leading-relaxed max-w-3xl">
           {c.executive_summary}
         </p>

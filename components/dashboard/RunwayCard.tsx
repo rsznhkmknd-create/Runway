@@ -5,9 +5,10 @@ interface Props {
   months: number
   trend: number
   cashBalance: number
+  currency: string
 }
 
-export default function RunwayCard({ months, trend, cashBalance }: Props) {
+export default function RunwayCard({ months, trend, cashBalance, currency }: Props) {
   const positive = trend >= 0
   const Arrow = positive ? ArrowUpRight : ArrowDownRight
 
@@ -38,7 +39,7 @@ export default function RunwayCard({ months, trend, cashBalance }: Props) {
       <p className="text-xs text-text-muted mt-1.5">
         Saldo{' '}
         <span className="text-text-secondary font-medium tabular-nums">
-          {formatCurrency(cashBalance)}
+          {formatCurrency(cashBalance, currency)}
         </span>
       </p>
 

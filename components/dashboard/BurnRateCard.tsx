@@ -11,6 +11,7 @@ interface Props {
   trend: number
   prevMonthly: number
   topCategories?: CategoryStat[]
+  currency: string
 }
 
 export default function BurnRateCard({
@@ -18,6 +19,7 @@ export default function BurnRateCard({
   trend,
   prevMonthly,
   topCategories = [],
+  currency,
 }: Props) {
   // For burn rate, lower is better — so negative trend is "good".
   const improved = trend <= 0
@@ -43,14 +45,14 @@ export default function BurnRateCard({
 
       <div className="flex items-baseline gap-1.5">
         <span className="text-3xl font-bold text-text-primary tracking-tight tabular-nums">
-          {formatCurrency(monthly)}
+          {formatCurrency(monthly, currency)}
         </span>
         <span className="text-sm font-medium text-text-muted">/mes</span>
       </div>
       <p className="text-xs text-text-muted mt-1.5">
         Mes anterior{' '}
         <span className="text-text-secondary font-medium tabular-nums">
-          {formatCurrency(prevMonthly)}
+          {formatCurrency(prevMonthly, currency)}
         </span>
       </p>
 
@@ -63,7 +65,7 @@ export default function BurnRateCard({
             >
               <span className="text-text-muted truncate">{cat.label}</span>
               <span className="font-semibold text-text-primary tabular-nums">
-                {formatCurrency(cat.amount)}
+                {formatCurrency(cat.amount, currency)}
               </span>
             </div>
           ))}

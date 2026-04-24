@@ -12,7 +12,7 @@ async function getProfile(userId: string) {
   const supabase = createServiceClient()
   const { data } = await supabase
     .from('profiles')
-    .select('id, company_name, currency, industry, business_type, country, city')
+    .select('id, company_name, currency, industry, business_type, country, city, logo_url')
     .eq('clerk_id', userId)
     .single()
   return data
@@ -134,6 +134,7 @@ export const POST = withRateLimit(async (request) => {
         business_type: profile.business_type,
         country:       profile.country,
         city:          profile.city,
+        logo_url:      profile.logo_url,
       },
     })
   } catch (err) {

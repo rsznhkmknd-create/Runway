@@ -26,17 +26,29 @@ const navItems = [
   { href: '/dashboard/ajustes',      label: 'Ajustes',     icon: Settings       },
 ]
 
-export default function Sidebar() {
+type Props = {
+  companyName?: string | null
+}
+
+export default function Sidebar({ companyName }: Props = {}) {
   const pathname = usePathname()
+  const trimmedCompany = companyName?.trim()
 
   return (
     <aside className="hidden lg:flex flex-col w-60 border-r border-border bg-app py-6 px-3 shrink-0">
-      {/* Logo */}
+      {/* Logo + nombre de empresa */}
       <Link href="/dashboard" className="flex items-center gap-2.5 px-3 mb-10">
         <FinsightLogo size={28} />
-        <span className="font-semibold text-text-primary text-base tracking-tight">
-          Finsight
-        </span>
+        <div className="flex flex-col min-w-0">
+          <span className="font-semibold text-text-primary text-base tracking-tight leading-tight">
+            Finsight
+          </span>
+          {trimmedCompany && (
+            <span className="text-[11px] text-text-muted truncate leading-tight mt-0.5">
+              {trimmedCompany}
+            </span>
+          )}
+        </div>
       </Link>
 
       {/* Nav */}

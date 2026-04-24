@@ -37,6 +37,13 @@ export type ReportContent = {
     notes:             string
   }
   currency:            string
+  // Snapshot del perfil al momento de generar el reporte. Se persisten aquí
+  // para que el encabezado siga mostrando datos coherentes aunque el perfil
+  // cambie más tarde.
+  company_name?:       string | null
+  logo_url?:           string | null
+  industry?:           string | null
+  country?:            string | null
 }
 
 export type ReportRow = {

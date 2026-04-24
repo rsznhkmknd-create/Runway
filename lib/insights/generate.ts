@@ -1,9 +1,13 @@
 import { anthropic } from '@/lib/claude'
+import { sectorContextFor } from '@/lib/reports/sector-context'
+import { countryContextFor } from '@/lib/reports/country-context'
 import type { DailyInsightsPayload, Insight, InsightSeverity } from './types'
 
 export type FinancialContext = {
   currency:             string
   company_name:         string | null
+  industry:             string | null
+  country:              string | null
   cash_balance:         number
   runway_months:        number | null
   burn_rate_monthly:    number
@@ -35,9 +39,26 @@ Reglas absolutas:
 Responde ÚNICAMENTE con JSON válido. Sin trailing commas. Sin comentarios. Sin texto adicional antes o después del JSON. Sin markdown, sin backticks, sin prefacios.`
 
 function buildUserPrompt(ctx: FinancialContext): string {
+  const companyLabel = ctx.company_name?.trim() || 'la empresa'
+  const perfil = [
+    `Nombre: ${companyLabel}`,
+    `Sector: ${ctx.industry ?? 'no especificado'}`,
+    `País: ${ctx.country ?? 'no especificado'}`,
+    `Moneda base: ${ctx.currency}`,
+  ].join('\n')
+
   return `Genera EXACTAMENTE 3 insights para el dashboard financiero de hoy.
 
-DATOS DE LA EMPRESA:
+PERFIL DEL NEGOCIO:
+${perfil}
+
+CONTEXTO SECTORIAL:
+${sectorContextFor(ctx.industry)}
+
+CONTEXTO GEOGRÁFICO:
+${countryContextFor(ctx.country)}
+
+DATOS FINANCIEROS ACTUALES:
 ${JSON.stringify(ctx, null, 2)}
 
 Responde SOLO con este JSON (sin markdown):
@@ -64,7 +85,9 @@ NO SIRVE:
 - "Se recomienda monitorear la situación financiera..."
 - "Considerar optimizar los procesos de cobro..."
 
-Los 3 insights deben cubrir ángulos DISTINTOS (no 3 insights sobre el mismo tema). Prioriza lo más relevante dado los datos.`
+Los 3 insights deben cubrir ángulos DISTINTOS (no 3 insights sobre el mismo tema). Prioriza lo más relevante dado los datos.
+
+ADAPTA el tono a la realidad del sector y país descritos arriba: referencias a benchmarks sectoriales (ej. food cost, MRR, utilización) y a particularidades locales (moneda, ciclos de cobro, impuestos) solo cuando refuercen el mensaje. No introduzcas datos inventados — usa el contexto para contextualizar los números reales.`
 }
 
 function normalizeSeverity(raw: unknown): InsightSeverity {

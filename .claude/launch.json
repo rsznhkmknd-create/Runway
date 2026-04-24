@@ -3,10 +3,10 @@
   "configurations": [
     {
       "name": "runway",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 3100,
-      "autoPort": true
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "dev", "-p", "4600"],
+      "port": 4600,
+      "autoPort": false
     }
   ]
 }

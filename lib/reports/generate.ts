@@ -1,4 +1,6 @@
 import { anthropic } from '@/lib/claude'
+import { sectorContextFor } from './sector-context'
+import { countryContextFor } from './country-context'
 import type { ReportContent, ReportType } from './types'
 
 type Transaction = {
@@ -16,6 +18,7 @@ type Profile = {
   business_type: string | null
   country:       string | null
   city:          string | null
+  logo_url?:     string | null
 }
 
 type GenerateArgs = {
@@ -100,6 +103,14 @@ ${companyLine}
 
 PERFIL COMPLETO DE LA EMPRESA:
 ${JSON.stringify(args.profile, null, 2)}
+
+CONTEXTO SECTORIAL:
+${sectorContextFor(args.profile.industry)}
+
+CONTEXTO GEOGRÁFICO:
+${countryContextFor(args.profile.country)}
+
+Usa estos dos bloques de contexto para calibrar tus benchmarks, referencias de mercado y recomendaciones. Si el sector es restauración, habla de food cost; si es SaaS, de churn y MRR; si el país es Chile, usa referencias locales (CLP, SII, UF cuando aplique). NO inventes datos, solo usa el contexto para dar color a los números reales.
 
 PERÍODO ACTUAL: ${args.periodStart} → ${args.periodEnd} (${windowDays} días)
 PERÍODO ANTERIOR: ${args.previousStart} → ${args.previousEnd} (${windowDays} días)
@@ -194,6 +205,14 @@ REGLAS DE CÁLCULO:
   parsed.top_expenses       = (parsed.top_expenses       ?? []).slice(0, 3)
   parsed.trends             = (parsed.trends             ?? []).slice(0, 6)
   parsed.alerts             = parsed.alerts             ?? []
+
+  // Snapshot del perfil en content — así el encabezado del reporte sigue
+  // mostrando los datos del momento en que se generó, aunque el perfil se
+  // actualice después.
+  parsed.company_name = args.profile.company_name ?? null
+  parsed.logo_url     = args.profile.logo_url     ?? null
+  parsed.industry     = args.profile.industry     ?? null
+  parsed.country      = args.profile.country      ?? null
 
   return parsed
 }

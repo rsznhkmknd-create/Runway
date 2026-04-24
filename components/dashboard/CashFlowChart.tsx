@@ -21,9 +21,10 @@ interface CustomTooltipProps {
   active?: boolean
   payload?: Array<{ value: number; name: string; color: string }>
   label?: string
+  currency: string
 }
 
-function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+function CustomTooltip({ active, payload, label, currency }: CustomTooltipProps) {
   if (!active || !payload?.length) return null
 
   return (
@@ -33,7 +34,7 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
         <div key={entry.name} className="flex items-center gap-2 mb-1">
           <span className="w-2 h-2 rounded-full" style={{ background: entry.color }} />
           <span className="text-text-muted capitalize">{entry.name}:</span>
-          <span className="font-semibold text-text-primary">{formatCurrency(entry.value)}</span>
+          <span className="font-semibold text-text-primary">{formatCurrency(entry.value, currency)}</span>
         </div>
       ))}
     </div>
@@ -42,9 +43,10 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
 
 interface Props {
   data: CashFlowDataPoint[]
+  currency: string
 }
 
-export default function CashFlowChart({ data }: Props) {
+export default function CashFlowChart({ data, currency }: Props) {
   const hasData = data.some((d) => d.ingresos > 0 || d.gastos > 0)
 
   return (
@@ -100,7 +102,7 @@ export default function CashFlowChart({ data }: Props) {
               tickLine={false}
               tickFormatter={(v) => `${v / 1000}k`}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip currency={currency} />} />
             <Area
               type="monotone"
               dataKey="ingresos"

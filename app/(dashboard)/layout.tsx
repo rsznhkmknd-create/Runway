@@ -19,7 +19,7 @@ export default async function DashboardLayout({
   const supabase = createServiceClient()
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, currency, onboarding_completed')
+    .select('id, currency, company_name, onboarding_completed')
     .eq('clerk_id', userId)
     .single()
 
@@ -56,7 +56,7 @@ export default async function DashboardLayout({
   return (
     <AlertsProvider alerts={alerts}>
       <div className="flex min-h-screen bg-app">
-        <Sidebar />
+        <Sidebar companyName={profile.company_name} />
         <div className="flex-1 flex flex-col min-w-0">
           <Header />
           <main className="flex-1 p-6 lg:p-8">{children}</main>

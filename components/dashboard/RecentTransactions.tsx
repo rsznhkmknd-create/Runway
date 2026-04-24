@@ -13,9 +13,10 @@ export interface RecentTransaction {
 
 interface Props {
   transactions: RecentTransaction[]
+  currency: string
 }
 
-export default function RecentTransactions({ transactions }: Props) {
+export default function RecentTransactions({ transactions, currency }: Props) {
   return (
     <div className="bg-surface rounded-2xl border border-border p-6 shadow-sm h-full">
       <div className="flex items-center justify-between mb-5">
@@ -67,7 +68,7 @@ export default function RecentTransactions({ transactions }: Props) {
                   tx.type === 'income' ? 'text-brand-700' : 'text-text-secondary'
                 }`}
               >
-                {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount)}
+                {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount, currency)}
               </span>
             </div>
           ))}

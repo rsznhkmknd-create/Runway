@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import {
   X,
   Upload,
@@ -9,11 +10,21 @@ import {
   AlertCircle,
   Sparkles,
   FilePlus,
+  Building2,
+  ExternalLink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchJson, FetchJsonError } from '@/lib/fetch-json'
 import { todayIso } from '@/lib/safe'
 import { useToast } from '@/components/ui/Toast'
+
+type Issuer = {
+  company_name: string | null
+  tax_id:       string | null
+  address:      string | null
+  city:         string | null
+  logo_url:     string | null
+}
 
 type Tab = 'manual' | 'upload'
 
@@ -60,6 +71,49 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
   const [extractedOk, setExtractedOk] = useState(false)
   const [extractionFailed, setExtractionFailed] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+
+  // Emisor (datos de la empresa del usuario, tomados del perfil)
+  const [issuer, setIssuer] = useState<Issuer | null>(null)
+
+  // Lee el perfil al abrir el modal. Cargamos aquí en vez de prop drilling
+  // desde el server component para mantener el modal autocontenido y
+  // aprovechar la caché HTTP en visitas sucesivas.
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    const load = async () => {
+      try {
+        const { profile } = await fetchJson<{
+          profile: {
+            company_name: string | null
+            tax_id: string | null
+            address: string | null
+            city: string | null
+            logo_url: string | null
+            currency: string
+          }
+        }>('/api/profile')
+        if (cancelled || !profile) return
+        setIssuer({
+          company_name: profile.company_name,
+          tax_id:       profile.tax_id,
+          address:      profile.address,
+          city:         profile.city,
+          logo_url:     profile.logo_url,
+        })
+        // Si la divisa del perfil existe, preselecciónala al crear desde cero.
+        if (profile.currency) {
+          setForm((f) => (f.amount === '' ? { ...f, currency: profile.currency } : f))
+        }
+      } catch {
+        // Perfil no crítico para el modal — si falla, seguimos sin bloque emisor.
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   const resetAll = useCallback(() => {
     setForm(EMPTY)
@@ -320,6 +374,52 @@ export default function InvoiceModal({ open, onClose, onCreated }: Props) {
                   <span className="ml-auto text-brand-600/70">Datos extraídos — revísalos</span>
                 </div>
               )}
+
+              {/* Emisor — datos de la empresa del usuario, readonly */}
+              <div className="rounded-xl border border-border bg-surface-2/50 px-3.5 py-3">
+                <div className="flex items-start gap-3">
+                  {issuer?.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={issuer.logo_url}
+                      alt={issuer.company_name ?? 'Logo'}
+                      className="w-10 h-10 rounded-lg object-contain border border-border bg-surface shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-surface border border-border flex items-center justify-center shrink-0 text-text-muted">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] uppercase tracking-wide font-semibold text-text-muted">
+                      Emisor
+                    </p>
+                    <p className="text-sm font-semibold text-text-primary truncate">
+                      {issuer?.company_name?.trim() || <span className="text-text-muted font-normal">Sin definir</span>}
+                    </p>
+                    <div className="text-xs text-text-muted leading-relaxed mt-0.5 space-x-2">
+                      <span>
+                        {issuer?.tax_id?.trim()
+                          ? `CIF/NIF ${issuer.tax_id}`
+                          : <span className="italic">CIF/NIF sin definir</span>}
+                      </span>
+                      <span className="text-border">·</span>
+                      <span>
+                        {issuer?.address?.trim()
+                          ? [issuer.address, issuer.city].filter(Boolean).join(', ')
+                          : <span className="italic">Dirección sin definir</span>}
+                      </span>
+                    </div>
+                  </div>
+                  <Link
+                    href="/dashboard/ajustes"
+                    className="shrink-0 inline-flex items-center gap-1 text-[11px] text-brand-700 hover:text-brand-800 font-medium"
+                  >
+                    Editar
+                    <ExternalLink className="w-3 h-3" />
+                  </Link>
+                </div>
+              </div>
 
               <div>
                 <label className="block text-xs font-medium text-text-secondary mb-1.5">

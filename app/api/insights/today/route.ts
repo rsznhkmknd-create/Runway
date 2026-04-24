@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getCompanyProfile } from '@/lib/supabase/company-profile'
 import { generateDailyInsights, type FinancialContext } from '@/lib/insights/generate'
 import { safeNumber, isValidDate, todayIso } from '@/lib/safe'
 import { withRateLimit } from '@/lib/api/with-rate-limit'
@@ -33,7 +34,9 @@ function buildContext(
   transactions: Transaction[],
   invoices: Invoice[],
   currency: string,
-  companyName: string | null
+  companyName: string | null,
+  industry: string | null,
+  country: string | null
 ): FinancialContext {
   const now = new Date()
   const thisMonthStart = startOfMonth(now)
@@ -86,6 +89,8 @@ function buildContext(
   return {
     currency,
     company_name:          companyName,
+    industry,
+    country,
     cash_balance:          Math.round(cash * 100) / 100,
     runway_months:         runwayMonths,
     burn_rate_monthly:     Math.round(avgMonthlyBurn * 100) / 100,
@@ -108,17 +113,12 @@ export const GET = withRateLimit(async () => {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-  const supabase = createServiceClient()
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, currency, company_name')
-    .eq('clerk_id', userId)
-    .single()
-
+  const profile = await getCompanyProfile(userId)
   if (!profile?.id) {
     return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 })
   }
+
+  const supabase = createServiceClient()
 
   const today = todayIso()
 
@@ -166,7 +166,9 @@ export const GET = withRateLimit(async () => {
     transactions,
     invoices,
     profile.currency,
-    profile.company_name
+    profile.company_name,
+    profile.industry,
+    profile.country
   )
 
   let payload

@@ -44,7 +44,7 @@ export default function SettingsTabs({ initialProfile, email }: Props) {
           onClick={() => setTab('profile')}
         />
         <TabButton
-          label="Mi empresa"
+          label={profile.company_name?.trim() || 'Mi empresa'}
           Icon={Building2}
           active={tab === 'company'}
           onClick={() => setTab('company')}

@@ -47,17 +47,45 @@ export interface NormalizedTransaction {
   date: string
 }
 
-// ── Amount parsing ────────────────────────────────────────────────────────────
-export function parseAmount(value: string): number {
-  if (!value || value.trim() === '' || value.trim() === '-') return 0
+export type NeedsReviewReason =
+  | 'amount_unparseable'
+  | 'date_unparseable'
+  | 'missing_description'
+  | 'missing_type_signal'
 
-  let str = value
-    .trim()
+export interface NeedsReviewRow {
+  rawRow: ParsedRow
+  reason: NeedsReviewReason
+  suggestedPatch?: Partial<NormalizedTransaction & { amount: number | null }>
+}
+
+export interface NormalizeResult {
+  transactions: NormalizedTransaction[]
+  needsReview: NeedsReviewRow[]
+}
+
+// ── Amount parsing ────────────────────────────────────────────────────────────
+
+/**
+ * Parse a currency-ish string into a number. Returns `null` when the input
+ * cannot be interpreted as a number — callers must treat `null` as
+ * "needs review", NOT as zero. This is the fix for the silent drop bug
+ * where unparseable amounts were being coerced to 0 and then skipped by
+ * `if (amount === 0) continue`.
+ */
+export function parseAmount(value: string | null | undefined): number | null {
+  if (value === null || value === undefined) return null
+  const trimmed = String(value).trim()
+  if (trimmed === '' || trimmed === '-') return null
+
+  let str = trimmed
     .replace(/[€$£¥₹\s]/g, '')
     .replace(/^"|"$/g, '')
 
   const isAccountingNegative = str.startsWith('(') && str.endsWith(')')
   str = str.replace(/[()]/g, '')
+
+  if (str === '') return null
 
   const lastComma = str.lastIndexOf(',')
   const lastPeriod = str.lastIndexOf('.')
@@ -69,11 +97,12 @@ export function parseAmount(value: string): number {
   }
 
   const amount = parseFloat(str)
-  if (isNaN(amount)) return 0
+  if (!Number.isFinite(amount)) return null
   return isAccountingNegative ? -Math.abs(amount) : amount
 }
 
 // ── Date parsing ──────────────────────────────────────────────────────────────
+
 const SPANISH_MONTHS: Record<string, string> = {
   enero: '01', ene: '01',
   febrero: '02', feb: '02',
@@ -93,9 +122,17 @@ export function todayIso(): string {
   return new Date().toISOString().split('T')[0]
 }
 
-export function parseDate(value: string): string {
-  if (!value || value.trim() === '') return todayIso()
-  const str = value.trim().toLowerCase()
+/**
+ * Parse a date string to ISO YYYY-MM-DD. Returns `null` when the format is
+ * not recognised — callers must treat null as "needs review", NOT as "today".
+ * This is the fix for the silent contamination bug where unparseable dates
+ * defaulted to `todayIso()` and polluted the dashboard.
+ */
+export function parseDate(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null
+  const raw = String(value).trim()
+  if (raw === '') return null
+  const str = raw.toLowerCase()
 
   if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.substring(0, 10)
 
@@ -103,7 +140,13 @@ export function parseDate(value: string): string {
   if (dmyNum) {
     const [, d, m, y] = dmyNum
     const year = y.length === 2 ? `20${y}` : y
-    return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+    const dd = d.padStart(2, '0')
+    const mm = m.padStart(2, '0')
+    // Sanity — reject obviously-bad month/day combos instead of generating
+    // "2024-13-45" which would then bomb further downstream.
+    if (Number(mm) < 1 || Number(mm) > 12) return null
+    if (Number(dd) < 1 || Number(dd) > 31) return null
+    return `${year}-${mm}-${dd}`
   }
 
   const spanishFull = str.match(/^(\d{1,2})?[\s\-\/]?([a-záéíóúñ]{3,})[\s\-\/](\d{2,4})$/i)
@@ -118,10 +161,10 @@ export function parseDate(value: string): string {
     }
   }
 
-  const parsed = new Date(str)
+  const parsed = new Date(raw)
   if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0]
 
-  return todayIso()
+  return null
 }
 
 // ── Description-based type inference (fallback) ────────────────────────────────
@@ -144,10 +187,15 @@ function inferTypeFromDescription(desc: string): 'income' | 'expense' | null {
 }
 
 // ── Type detection ────────────────────────────────────────────────────────────
-function detectType(row: ParsedRow, mapping: ColumnMapping): 'income' | 'expense' {
+function detectType(
+  row: ParsedRow,
+  mapping: ColumnMapping,
+  /** signed amount from the main 'monto' column, if any — pre-parsed for speed */
+  signedAmount: number | null
+): 'income' | 'expense' | null {
   if (mapping.tipo_metodo === 'debito_credito') {
-    const credit = mapping.monto_credito ? parseAmount(row[mapping.monto_credito] ?? '') : 0
-    return credit > 0 ? 'income' : 'expense'
+    const credit = mapping.monto_credito ? parseAmount(row[mapping.monto_credito] ?? '') : null
+    return (credit ?? 0) > 0 ? 'income' : 'expense'
   }
 
   if (mapping.tipo_metodo === 'columna_explicita' && mapping.tipo) {
@@ -158,65 +206,130 @@ function detectType(row: ParsedRow, mapping: ColumnMapping): 'income' | 'expense
     if (gastoVals.some((v) => val.includes(v) || v.includes(val))) return 'expense'
   }
 
-  // Keyword fallback from description
   if (mapping.tipo_metodo === 'descripcion_keywords' && mapping.concepto) {
     const inferred = inferTypeFromDescription(row[mapping.concepto] ?? '')
     if (inferred) return inferred
   }
 
-  // Sign-based fallback
-  const amount = parseAmount(row[mapping.monto ?? ''] ?? '0')
-  if (mapping.tipo_metodo === 'signo_positivo_es_gasto') {
-    return amount > 0 ? 'expense' : 'income'
+  if (signedAmount !== null) {
+    if (mapping.tipo_metodo === 'signo_positivo_es_gasto') {
+      return signedAmount > 0 ? 'expense' : 'income'
+    }
+    if (mapping.tipo_metodo === 'signo_positivo_es_ingreso') {
+      return signedAmount > 0 ? 'income' : 'expense'
+    }
   }
 
-  // Last resort: description keywords even if method isn't set that way
+  // Last-ditch: description keywords even if method isn't set that way
   if (mapping.concepto) {
     const inferred = inferTypeFromDescription(row[mapping.concepto] ?? '')
     if (inferred) return inferred
   }
 
-  return amount >= 0 ? 'income' : 'expense'
+  // No signal at all. Caller decides what to do.
+  return null
 }
 
 // ── Main normalizer ────────────────────────────────────────────────────────────
+
+/**
+ * Apply Claude's column mapping to every parsed row. Returns:
+ *   - `transactions`: rows that parsed cleanly (including amount === 0,
+ *                     which is a legal value — refunds, reconciliations).
+ *   - `needsReview`:  rows whose amount or date couldn't be parsed. They
+ *                     are NOT silently dropped and NOT assigned today's
+ *                     date. The UI surfaces them so the user fixes them.
+ */
 export function normalizeTransactions(
   rows: ParsedRow[],
   mapping: ColumnMapping
-): NormalizedTransaction[] {
-  const results: NormalizedTransaction[] = []
+): NormalizeResult {
+  const transactions: NormalizedTransaction[] = []
+  const needsReview: NeedsReviewRow[] = []
 
   for (const row of rows) {
     const values = Object.values(row).filter((v) => v.trim() !== '')
     if (values.length === 0) continue
 
-    const type = detectType(row, mapping)
+    // ── Amount ────────────────────────────────────────────────────────────
+    let amount: number | null
+    let signedForTypeDetection: number | null = null
 
-    let amount: number
     if (mapping.tipo_metodo === 'debito_credito') {
-      const credit = mapping.monto_credito ? parseAmount(row[mapping.monto_credito] ?? '') : 0
-      const debit = mapping.monto_debito ? parseAmount(row[mapping.monto_debito] ?? '') : 0
-      amount = Math.abs(type === 'income' ? credit : debit)
+      const credit = mapping.monto_credito ? parseAmount(row[mapping.monto_credito] ?? '') : null
+      const debit = mapping.monto_debito ? parseAmount(row[mapping.monto_debito] ?? '') : null
+      const bothNull = credit === null && debit === null
+      if (bothNull) {
+        needsReview.push({
+          rawRow: row,
+          reason: 'amount_unparseable',
+          suggestedPatch: { amount: null },
+        })
+        continue
+      }
+      amount = Math.abs((credit ?? 0) > 0 ? (credit ?? 0) : (debit ?? 0))
     } else {
-      amount = Math.abs(parseAmount(row[mapping.monto ?? ''] ?? '0'))
+      const signed = mapping.monto ? parseAmount(row[mapping.monto] ?? '') : null
+      signedForTypeDetection = signed
+      if (signed === null) {
+        needsReview.push({
+          rawRow: row,
+          reason: 'amount_unparseable',
+          suggestedPatch: { amount: null },
+        })
+        continue
+      }
+      amount = Math.abs(signed)
     }
 
-    if (amount === 0) continue
+    if (!Number.isFinite(amount)) {
+      needsReview.push({
+        rawRow: row,
+        reason: 'amount_unparseable',
+        suggestedPatch: { amount: null },
+      })
+      continue
+    }
+    // NOTE: amount === 0 is intentionally allowed through — it's valid for
+    // refunds, zero-sum reconciliations, or opening balances.
 
+    // ── Type ──────────────────────────────────────────────────────────────
+    const detectedType = detectType(row, mapping, signedForTypeDetection)
+    if (detectedType === null) {
+      needsReview.push({ rawRow: row, reason: 'missing_type_signal' })
+      continue
+    }
+
+    // ── Date ──────────────────────────────────────────────────────────────
+    let date: string
+    if (mapping.fecha) {
+      const parsed = parseDate(row[mapping.fecha] ?? '')
+      if (parsed === null) {
+        needsReview.push({
+          rawRow: row,
+          reason: 'date_unparseable',
+          suggestedPatch: { amount, type: detectedType },
+        })
+        continue
+      }
+      date = parsed
+    } else {
+      // No date column mapped at all — use import date. This is explicit and
+      // called out in warnings upstream; not a silent fallback per row.
+      date = todayIso()
+    }
+
+    // ── Description + category ────────────────────────────────────────────
     const description = mapping.concepto
       ? (row[mapping.concepto] ?? '').trim() || 'Sin descripción'
       : 'Sin descripción'
-
-    // Date: if no column mapped or value empty, use today (import date)
-    const dateRaw = mapping.fecha ? (row[mapping.fecha] ?? '').trim() : ''
-    const date = parseDate(dateRaw)
 
     const category = mapping.categoria
       ? (row[mapping.categoria] ?? '').trim() || 'Sin categoría'
       : 'Sin categoría'
 
-    results.push({ amount, type, category, description, date })
+    transactions.push({ amount, type: detectedType, category, description, date })
   }
 
-  return results
+  return { transactions, needsReview }
 }

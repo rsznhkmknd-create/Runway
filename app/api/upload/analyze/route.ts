@@ -1,13 +1,21 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { anthropic } from '@/lib/claude'
-import { parseUploadedFile, type ParsedSheet } from '@/lib/parse-file'
+import {
+  parseUploadedFile,
+  reindexSheetWithHeaderRow,
+  type ParsedSheet,
+} from '@/lib/parse-file'
 import {
   normalizeTransactions,
   type ColumnMapping,
   type NormalizedTransaction,
-  type PerColumnConfidence,
+  type NeedsReviewRow,
 } from '@/lib/normalize-transactions'
+import {
+  ColumnMappingSchema,
+  formatZodIssues,
+} from '@/lib/schemas/import'
 import { inferCategoriesFromDescriptions } from '@/lib/infer-categories'
 import { withRateLimit } from '@/lib/api/with-rate-limit'
 import { aiLimiter } from '@/lib/ratelimit'
@@ -22,126 +30,15 @@ import {
 const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.ods']
 const MAX_SIZE = 10 * 1024 * 1024
 
-// ── Fallback mapping so the route never returns a hard failure ───────────────
-function bestEffortFallbackMapping(sheet: ParsedSheet): ColumnMapping {
-  const cols = sheet.columns
-  const find = (patterns: RegExp[]) =>
-    cols.find((c) => patterns.some((p) => p.test(c.toLowerCase()))) ?? null
-
-  const monto = find([/\bmonto\b/, /\bimporte\b/, /\btotal\b/, /\bamount\b/])
-  const fecha = find([/fecha/, /\bdate\b/])
-  const concepto = find([/concepto|descripci|detalle|description|memo|referencia/])
-  const debito = find([/\bdebe\b|\bdebito\b|\bdébito\b|\bdebit\b|\bcargo\b|\bpago\b/])
-  const credito = find([/\bhaber\b|\bcredito\b|\bcrédito\b|\bcredit\b|\babono\b|\bingreso\b/])
-
-  return {
-    fecha,
-    concepto,
-    monto: monto ?? null,
-    monto_debito: debito,
-    monto_credito: credito,
-    tipo: null,
-    tipo_metodo: debito && credito ? 'debito_credito' : 'descripcion_keywords',
-    tipo_valores_ingreso: [],
-    tipo_valores_gasto: [],
-    categoria: null,
-    confidence: 'bajo',
-    moneda_detectada: 'desconocida',
-    notas:
-      'Fallback automático: Claude no respondió con un mapping válido. Revisa y ajusta antes de importar.',
-    sheet: sheet.name,
-    header_row: 1,
-    per_column_confidence: {
-      fecha: fecha ? 'bajo' : null,
-      concepto: concepto ? 'bajo' : null,
-      monto: monto || (debito && credito) ? 'bajo' : null,
-      tipo: null,
-      categoria: null,
-    },
-    reasoning: '',
-  }
-}
-
-function coerceMapping(raw: unknown, fallback: ColumnMapping): ColumnMapping {
-  if (!raw || typeof raw !== 'object') return fallback
-  const r = raw as Record<string, unknown>
-
-  const str = (k: string): string | null => {
-    const v = r[k]
-    if (v === null || v === undefined) return null
-    const s = String(v).trim()
-    return s === '' || s.toLowerCase() === 'null' ? null : s
-  }
-
-  const arr = (k: string): string[] => {
-    const v = r[k]
-    if (Array.isArray(v)) return v.map((x) => String(x))
-    return []
-  }
-
-  const metodoRaw = str('tipo_metodo') ?? ''
-  const metodo = (
-    [
-      'columna_explicita',
-      'signo_positivo_es_ingreso',
-      'signo_positivo_es_gasto',
-      'debito_credito',
-      'descripcion_keywords',
-    ].includes(metodoRaw)
-      ? metodoRaw
-      : 'descripcion_keywords'
-  ) as ColumnMapping['tipo_metodo']
-
-  const confRaw = str('confidence') ?? ''
-  const conf = (['alto', 'medio', 'bajo'].includes(confRaw) ? confRaw : 'bajo') as ColumnMapping['confidence']
-
-  const pcc = r.per_column_confidence
-  let per_column_confidence: PerColumnConfidence | undefined
-  if (pcc && typeof pcc === 'object') {
-    const p = pcc as Record<string, unknown>
-    const coerce = (v: unknown): 'alto' | 'medio' | 'bajo' | null => {
-      const s = v === null || v === undefined ? '' : String(v)
-      return s === 'alto' || s === 'medio' || s === 'bajo' ? s : null
-    }
-    per_column_confidence = {
-      fecha: coerce(p.fecha),
-      concepto: coerce(p.concepto),
-      monto: coerce(p.monto),
-      tipo: coerce(p.tipo),
-      categoria: coerce(p.categoria),
-    }
-  }
-
-  const headerRowNum = typeof r.header_row === 'number' ? r.header_row : 1
-
-  return {
-    fecha: str('fecha'),
-    concepto: str('concepto'),
-    monto: str('monto'),
-    monto_debito: str('monto_debito'),
-    monto_credito: str('monto_credito'),
-    tipo: str('tipo'),
-    tipo_metodo: metodo,
-    tipo_valores_ingreso: arr('tipo_valores_ingreso'),
-    tipo_valores_gasto: arr('tipo_valores_gasto'),
-    categoria: str('categoria'),
-    confidence: conf,
-    moneda_detectada: str('moneda_detectada') ?? 'desconocida',
-    notas: str('notas') ?? '',
-    sheet: str('sheet') ?? fallback.sheet ?? null,
-    header_row: headerRowNum,
-    per_column_confidence,
-  }
-}
-
 function pickSheet(sheets: ParsedSheet[], mappingSheet: string | null | undefined): ParsedSheet {
   if (mappingSheet) {
     const match = sheets.find(
       (s) => s.name.trim().toLowerCase() === mappingSheet.trim().toLowerCase()
     )
-    if (match && match.rows.length > 0) return match
+    if (match) return match
   }
-  const byRows = [...sheets].sort((a, b) => b.rows.length - a.rows.length)
+  // Otherwise pick the sheet with the most matrix rows.
+  const byRows = [...sheets].sort((a, b) => b.rawMatrix.length - a.rawMatrix.length)
   return byRows[0]
 }
 
@@ -191,7 +88,7 @@ export const POST = withRateLimit(async (req: Request) => {
   const allSheets = parsed.sheets
   const warnings = [...parsed.warnings]
 
-  if (allSheets.length === 0 || allSheets.every((s) => s.rows.length === 0)) {
+  if (allSheets.length === 0 || allSheets.every((s) => s.rawMatrix.length === 0)) {
     return NextResponse.json(
       { error: 'El archivo no contiene filas con datos.' },
       { status: 422 }
@@ -214,10 +111,10 @@ export const POST = withRateLimit(async (req: Request) => {
   })
 
   // ── Call Claude (chain-of-thought, max_tokens 8192) ────────────────────────
-  const defaultFallback = bestEffortFallbackMapping(allSheets[0])
-  let mapping: ColumnMapping = defaultFallback
+  let mapping: ColumnMapping | null = null
   let claudeReasoning = ''
-  let claudeFailureReason: null | 'empty_json' | 'invalid_json' | 'api_error' = null
+  let claudeFailureReason: null | 'empty_json' | 'invalid_json' | 'schema_invalid' | 'api_error' = null
+  let claudeFailureDetail: string | null = null
 
   try {
     const response = await anthropic.messages.create({
@@ -237,34 +134,74 @@ export const POST = withRateLimit(async (req: Request) => {
 
     if (!json) {
       claudeFailureReason = 'empty_json'
+      claudeFailureDetail = 'Claude no devolvió un bloque <json>.'
     } else {
       try {
-        const parsedJson = JSON.parse(cleanJson(json))
-        mapping = coerceMapping(parsedJson, defaultFallback)
-        mapping.reasoning = reasoning
+        const rawJson = JSON.parse(cleanJson(json))
+        const result = ColumnMappingSchema.safeParse(rawJson)
+        if (!result.success) {
+          claudeFailureReason = 'schema_invalid'
+          const issues = formatZodIssues(result.error)
+          claudeFailureDetail = issues
+            .map((i) => `${i.path}: ${i.message}`)
+            .join(' | ')
+          console.error('[analyze] schema validation failed:', issues)
+        } else {
+          mapping = { ...result.data, reasoning } as ColumnMapping
+        }
       } catch (e) {
-        console.error('[analyze] JSON parse error:', e, 'json snippet:', json.slice(0, 400))
         claudeFailureReason = 'invalid_json'
+        claudeFailureDetail = e instanceof Error ? e.message : 'JSON parse error'
+        console.error('[analyze] JSON parse error:', e, 'json snippet:', json.slice(0, 400))
       }
     }
   } catch (err) {
     console.error('[analyze] Claude call error:', err)
     claudeFailureReason = 'api_error'
+    claudeFailureDetail = err instanceof Error ? err.message : 'Unknown API error'
   }
 
-  if (claudeFailureReason) {
-    warnings.push(
-      'La IA no pudo razonar sobre el archivo — usamos un mapeo automático por patrones. Revisa las columnas antes de importar.'
+  // If Claude failed validation, we surface a 400 with the exact zod issues
+  // — not a silent fallback. The UI will show "monto: required" instead of
+  // "no se pudo interpretar la respuesta".
+  if (!mapping) {
+    return NextResponse.json(
+      {
+        error: 'La IA no devolvió un mapping válido del archivo.',
+        reason: claudeFailureReason,
+        detail: claudeFailureDetail,
+        reasoning: claudeReasoning,
+      },
+      { status: 400 }
     )
   }
 
   // ── Pick the sheet Claude chose ────────────────────────────────────────────
-  const chosen = pickSheet(allSheets, mapping.sheet ?? null)
+  let chosen = pickSheet(allSheets, mapping.sheet ?? null)
   if (chosen.name !== allSheets[0].name) {
     warnings.push(`Usando hoja "${chosen.name}" — es la que parece contener las transacciones.`)
   }
 
-  // ── Validate amounts ───────────────────────────────────────────────────────
+  // ── Respect Claude's header_row — re-index rows if it's beyond the heuristic ─
+  // Heuristic put the header on row 1 (or failed to detect any). If Claude
+  // says "the real header is on row 5", we trust it and rebuild `rows`
+  // keyed by those header names BEFORE calling the normalizer.
+  const heuristicHeaderRow = chosen.headerRowDetected ? 1 : 0
+  if (
+    typeof mapping.header_row === 'number' &&
+    mapping.header_row > heuristicHeaderRow &&
+    mapping.header_row <= chosen.rawMatrix.length
+  ) {
+    console.log(
+      `[import] Re-indexing rows on sheet "${chosen.name}": heuristic said row ${heuristicHeaderRow}, Claude said row ${mapping.header_row}`
+    )
+    chosen = reindexSheetWithHeaderRow(chosen, mapping.header_row)
+    warnings.push(
+      `La IA detectó que las cabeceras reales estaban en la fila ${mapping.header_row}, no en la 1. Re-indexamos las filas para usar esas cabeceras.`
+    )
+  }
+
+  // ── Validate amounts present in mapping ───────────────────────────────────
   const hasMonto = !!mapping.monto || (!!mapping.monto_debito && !!mapping.monto_credito)
   if (!hasMonto) {
     warnings.push(
@@ -273,9 +210,14 @@ export const POST = withRateLimit(async (req: Request) => {
   }
 
   // ── Normalize ──────────────────────────────────────────────────────────────
-  const transactions: NormalizedTransaction[] = hasMonto
-    ? normalizeTransactions(chosen.rows, mapping)
-    : []
+  let transactions: NormalizedTransaction[] = []
+  let needsReview: NeedsReviewRow[] = []
+
+  if (hasMonto) {
+    const result = normalizeTransactions(chosen.rows, mapping)
+    transactions = result.transactions
+    needsReview = result.needsReview
+  }
 
   if (transactions.length === 0 && hasMonto) {
     warnings.push(
@@ -283,8 +225,14 @@ export const POST = withRateLimit(async (req: Request) => {
     )
   }
 
+  if (needsReview.length > 0) {
+    warnings.push(
+      `${needsReview.length} fila(s) requieren revisión manual antes de importarse (problemas con monto o fecha).`
+    )
+  }
+
   if (!mapping.fecha) {
-    warnings.push('No hay columna de fecha — se usó la fecha de hoy para todas las transacciones.')
+    warnings.push('No hay columna de fecha — se usará la fecha de hoy para todas las transacciones.')
   }
 
   // ── Infer categories when not provided ─────────────────────────────────────
@@ -309,6 +257,7 @@ export const POST = withRateLimit(async (req: Request) => {
     totalTransactions: transactions.length,
     preview,
     transactions,
+    needsReview,
     mapping,
     warnings,
     meta: {

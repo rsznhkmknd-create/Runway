@@ -22,7 +22,7 @@ import {
 const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.ods']
 const MAX_SIZE = 10 * 1024 * 1024
 
-// ── Fallback mapping so we never return a hard failure from the route ────────
+// ── Fallback mapping so the route never returns a hard failure ───────────────
 function bestEffortFallbackMapping(sheet: ParsedSheet): ColumnMapping {
   const cols = sheet.columns
   const find = (patterns: RegExp[]) =>
@@ -47,7 +47,8 @@ function bestEffortFallbackMapping(sheet: ParsedSheet): ColumnMapping {
     categoria: null,
     confidence: 'bajo',
     moneda_detectada: 'desconocida',
-    notas: 'Fallback automático: Claude no respondió con un mapping válido. Revisa y ajusta antes de importar.',
+    notas:
+      'Fallback automático: Claude no respondió con un mapping válido. Revisa y ajusta antes de importar.',
     sheet: sheet.name,
     header_row: 1,
     per_column_confidence: {
@@ -61,7 +62,6 @@ function bestEffortFallbackMapping(sheet: ParsedSheet): ColumnMapping {
   }
 }
 
-// Coerce whatever Claude returned into a strict ColumnMapping, filling defaults.
 function coerceMapping(raw: unknown, fallback: ColumnMapping): ColumnMapping {
   if (!raw || typeof raw !== 'object') return fallback
   const r = raw as Record<string, unknown>
@@ -136,10 +136,11 @@ function coerceMapping(raw: unknown, fallback: ColumnMapping): ColumnMapping {
 
 function pickSheet(sheets: ParsedSheet[], mappingSheet: string | null | undefined): ParsedSheet {
   if (mappingSheet) {
-    const match = sheets.find((s) => s.name.trim().toLowerCase() === mappingSheet.trim().toLowerCase())
+    const match = sheets.find(
+      (s) => s.name.trim().toLowerCase() === mappingSheet.trim().toLowerCase()
+    )
     if (match && match.rows.length > 0) return match
   }
-  // Pick the sheet with the most rows (most likely the data sheet)
   const byRows = [...sheets].sort((a, b) => b.rows.length - a.rows.length)
   return byRows[0]
 }
@@ -161,8 +162,9 @@ export const POST = withRateLimit(async (req: Request) => {
     return NextResponse.json({ error: 'No se recibió ningún archivo' }, { status: 400 })
   }
 
-  const filename = file.name.toLowerCase()
-  const hasValidExt = ALLOWED_EXTENSIONS.some((ext) => filename.endsWith(ext))
+  const filename = file.name
+  const lowerName = filename.toLowerCase()
+  const hasValidExt = ALLOWED_EXTENSIONS.some((ext) => lowerName.endsWith(ext))
   if (!hasValidExt) {
     return NextResponse.json(
       { error: `Formato no soportado. Acepta: ${ALLOWED_EXTENSIONS.join(', ')}` },
@@ -178,7 +180,7 @@ export const POST = withRateLimit(async (req: Request) => {
   let parsed
   try {
     const buffer = Buffer.from(await file.arrayBuffer())
-    parsed = parseUploadedFile(buffer, file.name)
+    parsed = parseUploadedFile(buffer, filename)
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Formato inválido' },
@@ -196,31 +198,31 @@ export const POST = withRateLimit(async (req: Request) => {
     )
   }
 
-  // ── Render full content for Claude ─────────────────────────────────────────
+  // ── Render full content for Claude — ALL rows, ALL sheets ──────────────────
   const { markdown, truncated, rowCounts } = renderSheetsForClaude(allSheets)
   if (truncated) {
     warnings.push(
-      'El archivo era muy grande; enviamos una parte representativa a la IA para detectar estructura (los datos completos sí se procesan después).'
+      'El archivo es enorme; se enviaron los bordes (top + bottom) de cada hoja a la IA. Los datos completos sí se procesan después.'
     )
   }
 
   const userPrompt = buildAnalyzeUserPrompt({
-    filename: file.name,
+    filename,
     sheets: allSheets,
     markdown,
     truncated,
   })
 
-  // ── Call Claude (chain-of-thought, 4096 tokens) ────────────────────────────
+  // ── Call Claude (chain-of-thought, max_tokens 8192) ────────────────────────
   const defaultFallback = bestEffortFallbackMapping(allSheets[0])
   let mapping: ColumnMapping = defaultFallback
   let claudeReasoning = ''
-  let claudeFailureReason: string | null = null
+  let claudeFailureReason: null | 'empty_json' | 'invalid_json' | 'api_error' = null
 
   try {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: ANALYZE_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userPrompt }],
     })
@@ -252,21 +254,19 @@ export const POST = withRateLimit(async (req: Request) => {
 
   if (claudeFailureReason) {
     warnings.push(
-      'La IA no pudo razonar sobre el archivo por completo — usamos un mapeo automático por patrones. Revisa y ajusta las columnas en el preview antes de importar.'
+      'La IA no pudo razonar sobre el archivo — usamos un mapeo automático por patrones. Revisa las columnas antes de importar.'
     )
   }
 
-  // ── Pick the sheet Claude chose (or the best default) ──────────────────────
+  // ── Pick the sheet Claude chose ────────────────────────────────────────────
   const chosen = pickSheet(allSheets, mapping.sheet ?? null)
   if (chosen.name !== allSheets[0].name) {
     warnings.push(`Usando hoja "${chosen.name}" — es la que parece contener las transacciones.`)
   }
 
-  // ── Validate that we can extract amounts ───────────────────────────────────
+  // ── Validate amounts ───────────────────────────────────────────────────────
   const hasMonto = !!mapping.monto || (!!mapping.monto_debito && !!mapping.monto_credito)
   if (!hasMonto) {
-    // Even without a clear amount column we still return — with a warning —
-    // so the user can correct in the preview rather than hit a dead-end error.
     warnings.push(
       'No se detectó una columna de importe clara. Selecciona manualmente cuál es la columna del monto en el preview.'
     )
@@ -304,14 +304,13 @@ export const POST = withRateLimit(async (req: Request) => {
   const preview = transactions.slice(0, 5)
 
   return NextResponse.json({
-    filename: file.name,
+    filename,
     totalRows: chosen.rows.length,
     totalTransactions: transactions.length,
     preview,
     transactions,
     mapping,
     warnings,
-    /** Extra metadata to power a richer preview UI */
     meta: {
       sheetsCount: allSheets.length,
       chosenSheet: chosen.name,

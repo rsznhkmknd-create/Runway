@@ -2,8 +2,8 @@ import type { ParsedSheet } from './parse-file'
 
 /**
  * Converts a sheet's raw matrix into a compact markdown table.
- * Preserves column positions so Claude can reason about "column C" etc.
- * Escapes pipe chars so the markdown doesn't break.
+ * Preserves column positions (A/B/C…) and row numbers so Claude can reason
+ * precisely about "header is on row 3" or "column C is the amount".
  */
 function matrixToMarkdown(matrix: string[][]): string {
   if (matrix.length === 0) return '_(hoja vacía)_'
@@ -11,7 +11,6 @@ function matrixToMarkdown(matrix: string[][]): string {
   const width = Math.max(...matrix.map((r) => r.length))
   if (width === 0) return '_(hoja vacía)_'
 
-  // Column letters: A, B, ..., Z, AA, ...
   const colLetter = (i: number): string => {
     let s = ''
     let n = i
@@ -28,7 +27,7 @@ function matrixToMarkdown(matrix: string[][]): string {
   const bodyLines = matrix.map((row, i) => {
     const cells = Array.from({ length: width }, (_, c) => {
       const v = (row[c] ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ')
-      return v.length > 120 ? v.slice(0, 117) + '…' : v
+      return v.length > 180 ? v.slice(0, 177) + '…' : v
     })
     return [String(i + 1), ...cells].join(' | ')
   })
@@ -36,24 +35,26 @@ function matrixToMarkdown(matrix: string[][]): string {
   return [header.join(' | '), separator.join(' | '), ...bodyLines].join('\n')
 }
 
-/**
- * Estimate token cost of a sheet's markdown representation.
- * Uses ~4 chars/token as a conservative heuristic.
- */
+/** Rough token estimate — Claude's tokenizer averages ~4 chars/token for this kind of text. */
 function estimateTokens(s: string): number {
   return Math.ceil(s.length / 4)
 }
 
 /**
- * Render every sheet as markdown, but cap total tokens so we stay well under
- * Claude's 200K context. If a sheet is huge we truncate its body but keep
- * top/bottom so Claude still sees the real edges.
+ * Render every sheet as markdown. Budget is generous — Claude has 200K tokens
+ * of context; we reserve ~20K for the prompt + response and send up to 180K of
+ * sheet content. Only truncates when a workbook is genuinely huge (tens of
+ * thousands of rows); in that case we keep the top + bottom of each sheet so
+ * Claude still sees headers and any summary/total rows.
  */
 export function renderSheetsForClaude(
   sheets: ParsedSheet[],
-  /** rough token budget for all sheet content combined */
-  budget = 120_000
-): { markdown: string; truncated: boolean; rowCounts: Record<string, { total: number; shown: number }> } {
+  budget = 180_000
+): {
+  markdown: string
+  truncated: boolean
+  rowCounts: Record<string, { total: number; shown: number }>
+} {
   const rowCounts: Record<string, { total: number; shown: number }> = {}
   let truncated = false
   const parts: string[] = []
@@ -61,21 +62,24 @@ export function renderSheetsForClaude(
 
   for (let s = 0; s < sheets.length; s++) {
     const sheet = sheets[s]
-    const header = `## Hoja ${s + 1}: "${sheet.name}" (${sheet.rawMatrix.length} filas totales, cabecera detectada: ${sheet.headerRowDetected ? 'sí' : 'no'})`
+    const header = `## Hoja ${s + 1}: "${sheet.name}" — ${sheet.rawMatrix.length} filas totales, cabecera autodetectada: ${sheet.headerRowDetected ? 'sí' : 'no'}`
 
-    // Start optimistic — try to include the entire sheet
     let sheetMd = matrixToMarkdown(sheet.rawMatrix)
     let shown = sheet.rawMatrix.length
 
-    // If too big, keep top 80 + bottom 20 rows (preserves headers + totals)
-    if (estimateTokens(sheetMd) + usedTokens > budget) {
-      const keepTop = 80
-      const keepBottom = 20
+    // Only truncate if we're genuinely about to blow the budget.
+    const projected = usedTokens + estimateTokens(sheetMd) + estimateTokens(header)
+    if (projected > budget) {
+      // Preserve top (headers, any pre-header metadata) and bottom (totals/footnotes).
+      const keepTop = 120
+      const keepBottom = 30
       if (sheet.rawMatrix.length > keepTop + keepBottom + 5) {
         const head = sheet.rawMatrix.slice(0, keepTop)
         const tail = sheet.rawMatrix.slice(-keepBottom)
-        const gap = [
-          [`… (${sheet.rawMatrix.length - keepTop - keepBottom} filas intermedias omitidas por tamaño)`],
+        const gap: string[][] = [
+          [
+            `… (${sheet.rawMatrix.length - keepTop - keepBottom} filas intermedias omitidas — archivo demasiado grande para el contexto)`,
+          ],
         ]
         sheetMd = matrixToMarkdown([...head, ...gap, ...tail])
         shown = keepTop + keepBottom
@@ -88,10 +92,12 @@ export function renderSheetsForClaude(
     usedTokens += estimateTokens(sheetMd) + estimateTokens(header)
 
     if (usedTokens >= budget) {
-      parts.push(
-        `\n_(Resto de hojas omitidas por tamaño — ${sheets.length - s - 1} hoja(s) no se enviaron)_`
-      )
-      truncated = true
+      if (s + 1 < sheets.length) {
+        parts.push(
+          `\n_(${sheets.length - s - 1} hoja(s) adicionales omitidas por tamaño)_`
+        )
+        truncated = true
+      }
       break
     }
   }
@@ -99,25 +105,71 @@ export function renderSheetsForClaude(
   return { markdown: parts.join('\n\n'), truncated, rowCounts }
 }
 
-export const ANALYZE_SYSTEM_PROMPT = `Eres un analista financiero experto. Te estoy pasando un archivo Excel completo. Tu trabajo es entenderlo como lo haría un humano inteligente — sin importar si está desordenado, tiene fórmulas, múltiples hojas, headers en cualquier fila, datos en cualquier idioma o formato.
+// ──────────────────────────────────────────────────────────────────────────────
+// System prompt — the brain of the operation.
+// ──────────────────────────────────────────────────────────────────────────────
 
-Encuentra las columnas de fecha, descripción, monto y tipo (ingreso/gasto). Razona sobre el contenido, no apliques reglas rígidas. Si el monto está calculado como cantidad × precio, considera que ya está resuelto (te lo pasamos evaluado). Si el tipo no está explícito, infierelo del contexto.
+export const ANALYZE_SYSTEM_PROMPT = `Eres un analista financiero experto analizando archivos Excel/CSV subidos por usuarios reales. Tu trabajo es encontrar los datos financieros aunque el archivo sea un desastre.
 
-EJEMPLOS DE ARCHIVOS QUE PUEDES ENCONTRAR:
-• Extracto bancario español con columnas "Fecha valor", "Concepto", "Debe" / "Haber".
-• Export de Stripe en inglés con "Created (UTC)", "Amount", "Currency", "Status".
-• Excel casero con headers en la fila 3 porque las filas 1-2 tienen un logo y un título.
-• Libro de caja en el que cada mes es una hoja distinta y cada hoja tiene su propia tabla.
-• Archivo de una asesoría con signo negativo para gastos y positivo para ingresos, sin columna de tipo.
-• CSV sin cabeceras — solo fila tras fila de "2024-01-15, Alquiler, -800".
-• Facturación con columnas "Cantidad", "Precio", "IVA", "Total" — el monto real está en "Total".
-• Mezcla caótica: headers en español y valores en inglés, fechas en formatos mixtos, montos con "€" pegado.
+ESTE ARCHIVO PUEDE ESTAR COMPLETAMENTE DESORDENADO. Prepárate para lo siguiente:
 
-CÓMO RESPONDER — DOS BLOQUES, NADA MÁS:
+• Los headers pueden estar en CUALQUIER fila — no asumas que están en la fila 1. A menudo están en la fila 3, 5, 7 porque arriba hay un logo ASCII, un título, el nombre de la empresa, el periodo, filas vacías, o metadatos ("Fecha de generación: …").
+• Puede haber filas vacías intercaladas, celdas fusionadas representadas como texto repetido, columnas totalmente vacías, columnas con nombres en blanco.
+• Puede haber títulos de sección ("Ingresos de Enero") mezclados entre los datos.
+• Puede haber subtotales, totales, y fórmulas de suma al final — NO son transacciones, ignóralos.
+• Los nombres de columna pueden estar en español, inglés, catalán, portugués, francés, o siglas.
+• Las fechas pueden venir en cualquier formato (DD/MM/YYYY, MM-DD-YY, "15 enero 2024", epoch, serial de Excel).
+• Los montos pueden tener el símbolo de moneda pegado ("€1.234,56"), con separador de miles como punto o coma, con paréntesis para negativos (contabilidad), o separados en columnas débito/crédito.
 
-1. Primero, un bloque <reasoning> con 2-4 líneas explicando qué estructura detectaste y por qué. Es para tu razonamiento, no para el usuario final.
+TU TAREA: encuentra los datos financieros reales aunque estén escondidos entre basura. Busca patrones: filas consecutivas donde hay al menos una fecha, un monto numérico y (idealmente) una descripción. Ignora filas que sean títulos, subtotales, headers duplicados, metadatos o separadores.
 
-2. Luego, un bloque <json> con JSON válido (sin markdown, sin backticks, sin comentarios, sin trailing commas). Ese JSON DEBE tener esta forma exacta:
+EJEMPLOS DE ARCHIVOS REALES QUE VAS A ENCONTRAR:
+
+1. Extracto bancario español: columnas "Fecha valor", "Concepto", "Debe", "Haber". Headers en fila 1 o 2.
+2. Export de Stripe/PayPal en inglés: "Created (UTC)", "Amount", "Currency", "Status", "Customer". Headers en fila 1.
+3. Excel casero: filas 1-2 tienen el logo en texto y el nombre del negocio, fila 3 está vacía, fila 4 dice "MES DE ENERO", fila 5 está vacía, fila 6 tiene los headers, fila 7+ los datos, fila final es "TOTAL" con una suma.
+4. Libro de caja multi-hoja: cada mes es una pestaña. Puede que te pase solo una hoja o varias — usa la que tenga más datos transaccionales.
+5. Export raro sin headers: solo filas de "2024-01-15, Alquiler, -800" — usa "Columna 1", "Columna 2", "Columna 3".
+6. Facturación con "Cantidad", "Precio", "IVA", "Total" — el monto real es "Total" (ya lo calculamos nosotros al resolver fórmulas, te llega resuelto).
+7. Mezcla caótica: headers en español, valores en inglés, fechas mixtas, montos con "€" pegado, alguna fila en blanco entre bloques.
+
+──────────────────────────────────────────────────────────────────────────────
+EJEMPLO DE RAZONAMIENTO ESPERADO (para que veas el nivel de detalle)
+──────────────────────────────────────────────────────────────────────────────
+
+Imagina que te paso esto:
+
+## Hoja 1: "Movimientos" — 508 filas
+row | A | B | C | D | E
+--- | --- | --- | --- | --- | ---
+1 | Banco Santander |  |  |  |
+2 | Extracto cuenta 0049-**** |  |  |  |
+3 | Periodo: Ene-Mar 2024 |  |  |  |
+4 |  |  |  |  |
+5 | Fecha | Concepto | Debe | Haber | Saldo
+6 | 02/01/2024 | Nómina Acme SL |  | 2500,00 | 3420,15
+7 | 03/01/2024 | Alquiler oficina | 800,00 |  | 2620,15
+...
+506 | 31/03/2024 | Pago proveedor | 150,00 |  | 4210,00
+507 |  |  |  |  |
+508 | TOTAL |  | 12500,00 | 15920,15 |
+
+Tu razonamiento debería ser:
+"Las filas 1-3 son metadatos del banco, fila 4 vacía. Los headers reales están en la fila 5 (Fecha, Concepto, Debe, Haber, Saldo). Los datos van de la fila 6 a la 506. La fila 508 es un total que hay que ignorar. Método de tipo: débito/crédito porque hay columnas 'Debe' y 'Haber' separadas. Moneda: EUR (formato español con coma decimal). Confidence: alto — es un extracto bancario estándar."
+
+Y el JSON correspondiente tendría header_row: 5, sheet: "Movimientos", monto_debito: "Debe", monto_credito: "Haber", etc.
+
+──────────────────────────────────────────────────────────────────────────────
+CÓMO RESPONDER — DOS BLOQUES, NADA MÁS
+──────────────────────────────────────────────────────────────────────────────
+
+1. Un bloque <reasoning> con 3-6 líneas explicando:
+   - Qué hoja eliges y por qué
+   - En qué fila están los headers reales
+   - Qué filas son basura (metadatos/títulos/totales) y se ignoran
+   - Qué método de tipo usas y por qué
+
+2. Un bloque <json> con JSON válido. Sin markdown, sin backticks, sin comentarios, sin trailing commas. Exactamente esta forma:
 
 {
   "fecha": "nombre_columna_o_null",
@@ -145,15 +197,15 @@ CÓMO RESPONDER — DOS BLOQUES, NADA MÁS:
 }
 
 REGLAS PARA EL JSON:
-- Usa EXACTAMENTE el nombre de columna tal como aparece en la cabecera detectada. Si no hay cabecera real, usa "Columna N" donde N empieza en 1.
-- Si no hay columna de fecha, pon "fecha": null — se usará la fecha de importación.
-- Si no hay categoría, pon "categoria": null — se inferirá después.
-- Si hay débito/crédito separados (debe/haber, pagos/cobros, debit/credit), usa monto_debito + monto_credito con tipo_metodo "debito_credito" y deja "monto": null.
-- Si el signo del monto indica el tipo, usa "signo_positivo_es_ingreso" o "signo_positivo_es_gasto".
-- Si no hay señal clara pero hay descripción, usa "descripcion_keywords".
-- "header_row" es el número de fila (1-indexed) donde viven los nombres reales. Es 1 en un archivo normal, puede ser 3-4 si hay metadatos arriba.
-- Para "per_column_confidence": usa "alto" si estás seguro, "medio" si hay ambigüedad razonable, "bajo" si adivinaste, null si ese campo no aplica.
-- SIEMPRE devuelve un JSON válido aunque te falte información. Nunca devuelvas un error — devuelve tu mejor inferencia con confidence "bajo" y el usuario corregirá en el preview.`
+- Usa EXACTAMENTE el nombre de columna tal como aparece en la fila de headers que detectaste. Si no hay headers reales, usa "Columna 1", "Columna 2", etc.
+- Si no hay columna de fecha, pon "fecha": null.
+- Si no hay categoría, pon "categoria": null.
+- Si hay débito/crédito separados (Debe/Haber, pagos/cobros, debit/credit), usa monto_debito + monto_credito con tipo_metodo "debito_credito" y deja "monto": null.
+- Si el signo indica el tipo, usa "signo_positivo_es_ingreso" o "signo_positivo_es_gasto".
+- "header_row" es el número de fila (1-indexed, el que ves en la columna "row" de la tabla markdown) donde están los headers reales.
+- "sheet" es el nombre de la hoja (tab) elegida, tal como aparece en el título "Hoja N: ...".
+- per_column_confidence: "alto" si está clarísimo, "medio" si hay ambigüedad, "bajo" si adivinaste, null si el campo no aplica.
+- SIEMPRE devuelve un JSON válido. Nunca un error. Si no estás seguro, devuelve tu mejor inferencia con confidence "bajo" — el usuario corregirá en el preview.`
 
 export type AnalyzeUserPromptInput = {
   filename: string
@@ -169,23 +221,29 @@ export function buildAnalyzeUserPrompt({
   truncated,
 }: AnalyzeUserPromptInput): string {
   const sheetSummary = sheets
-    .map((s, i) => `  ${i + 1}. "${s.name}" — ${s.rawMatrix.length} filas × ${Math.max(...s.rawMatrix.map((r) => r.length), 0)} columnas${s.headerRowDetected ? '' : ' (sin cabecera detectada)'}`)
+    .map(
+      (s, i) =>
+        `  ${i + 1}. "${s.name}" — ${s.rawMatrix.length} filas × ${Math.max(
+          ...s.rawMatrix.map((r) => r.length),
+          0
+        )} columnas${s.headerRowDetected ? '' : ' (sin cabecera autodetectada)'}`
+    )
     .join('\n')
 
   const truncNote = truncated
-    ? '\n\nNOTA: El archivo era muy grande y hemos tenido que truncar algunas filas intermedias — verás marcadores "… (N filas intermedias omitidas)" en la tabla. Tu tarea es inferir la estructura; las filas omitidas no son necesarias para detectar columnas.'
+    ? '\n\n⚠️ NOTA: El archivo es enorme y hemos tenido que recortar algunas filas intermedias — verás marcadores "… (N filas intermedias omitidas)". Las filas visibles (top + bottom) son suficientes para detectar la estructura.'
     : ''
 
   return `ARCHIVO: ${filename}
 
-HOJAS (${sheets.length}):
+HOJAS DETECTADAS (${sheets.length}):
 ${sheetSummary}${truncNote}
 
-CONTENIDO COMPLETO (cada hoja como tabla markdown, la columna "row" es el número de fila original del archivo):
+CONTENIDO COMPLETO DEL ARCHIVO — cada hoja como tabla markdown. La columna "row" indica el número de fila original. Las letras A/B/C… son las columnas del Excel.
 
 ${markdown}
 
-Analiza esto como te indica el system prompt. Empieza por <reasoning>…</reasoning>, sigue con <json>…</json>.`
+Analiza el archivo como te indica el system prompt. Empieza por <reasoning>…</reasoning> con tu razonamiento, sigue con <json>…</json> con el mapping exacto.`
 }
 
 /** Extract the <reasoning> block (if any) and the <json> block from Claude's response. */
@@ -200,7 +258,7 @@ export function extractReasoningAndJson(raw: string): { reasoning: string; json:
     }
   }
 
-  // Fallback — some responses may skip the tags. Try to locate the JSON blob.
+  // Fallback — locate the first balanced-ish JSON blob.
   const braceStart = raw.indexOf('{')
   const braceEnd = raw.lastIndexOf('}')
   if (braceStart >= 0 && braceEnd > braceStart) {
@@ -213,10 +271,7 @@ export function extractReasoningAndJson(raw: string): { reasoning: string; json:
   return { reasoning: reasoningMatch?.[1]?.trim() ?? '', json: '' }
 }
 
-/**
- * Clean a JSON string before parsing: strip markdown fences, trailing commas,
- * BOM etc. Matches the behaviour of the previous route.
- */
+/** Clean a JSON string before parsing: strip BOM, markdown fences, trailing commas. */
 export function cleanJson(json: string): string {
   return json
     .replace(/^\uFEFF/, '')

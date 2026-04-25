@@ -1,4 +1,5 @@
 import type { ParsedSheet } from './parse-file'
+import type { DetectedRegion } from './parsers/region-detector'
 
 /**
  * Converts a sheet's raw matrix into a compact markdown table.
@@ -270,6 +271,99 @@ export function extractReasoningAndJson(raw: string): { reasoning: string; json:
 
   return { reasoning: reasoningMatch?.[1]?.trim() ?? '', json: '' }
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Multi-region rendering — used when the detector finds 2+ regions in a sheet.
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** Convert a DetectedRegion's rawMatrix into the same markdown table shape used
+ *  for full sheets, so Claude can apply the same column-detection logic. */
+function regionToMarkdown(region: DetectedRegion): string {
+  const matrix = region.rawMatrix.map((row) =>
+    row.map((c) => (c == null ? '' : String(c)))
+  )
+  return matrixToMarkdown(matrix)
+}
+
+export function renderRegionsForClaude(
+  sheets: ParsedSheet[],
+  regionsBySheet: Map<string, DetectedRegion[]>,
+  budget = 180_000
+): { markdown: string; truncated: boolean } {
+  let truncated = false
+  const parts: string[] = []
+  let usedTokens = 0
+
+  for (const sheet of sheets) {
+    const regions = regionsBySheet.get(sheet.name) ?? []
+    if (regions.length === 0) continue
+    parts.push(`# Hoja: "${sheet.name}" (${regions.length} regiones detectadas)`)
+    for (const r of regions) {
+      const header =
+        `\n## Region "${r.id}"  (filas ${r.startRow}-${r.endRow}, ` +
+        `cols ${r.startCol}-${r.endCol})` +
+        (r.sectionTitle ? `  — sectionTitle: "${r.sectionTitle}"` : '')
+      const md = regionToMarkdown(r)
+      const cost = estimateTokens(header) + estimateTokens(md)
+      if (usedTokens + cost > budget) {
+        parts.push(
+          `\n_(Restantes regiones omitidas por presupuesto de tokens)_`
+        )
+        truncated = true
+        break
+      }
+      parts.push(`${header}\n\n${md}`)
+      usedTokens += cost
+    }
+    if (truncated) break
+  }
+
+  return { markdown: parts.join('\n\n'), truncated }
+}
+
+/**
+ * Addendum appended to the system prompt when running in multi-region mode.
+ * Stays short on purpose — does NOT redo the prompt, just adds the rules
+ * specific to the regions/blockType payload.
+ */
+export const MULTIREGION_PROMPT_ADDENDUM = `
+
+──────────────────────────────────────────────────────────────────────────────
+MULTI-REGIÓN
+──────────────────────────────────────────────────────────────────────────────
+
+Si el archivo tiene múltiples tablas separadas por filas o columnas vacías, recibirás cada una como región independiente con su sectionTitle. Devuelve un mapping por región en el array \`regions\`. Cada región tiene su propio header_row (relativo al inicio de la región, 1-indexed dentro del rawMatrix de la región). Clasifica cada región con blockType.
+
+Clasificación de blockType:
+- inventory_snapshot: tiene "Producto", "Cantidad", "Precio unit" → NO son transacciones, no extraer
+- summary_totals: filas como "Total ventas", "Ganancia??" → NO extraer
+- recurring_expenses: tiene columna "Frecuencia" (mensual, quincenal, bimestral) y a veces no tiene fecha específica
+- accounts_receivable: deudas de clientes al negocio (columna "Quien debe", "Status")
+- loans_payable: préstamos del negocio (columna "Pago mensual", "Monto original")
+- income_transactions: ventas, ingresos (fecha + monto positivo)
+- expense_transactions: gastos con fecha específica
+- notes_other: comentarios, pendientes
+- unknown: cuando no puedes decidir
+
+FORMATO DE RESPUESTA EN MULTI-REGIÓN:
+
+<reasoning> 2-4 líneas describiendo qué encontraste por región </reasoning>
+<json>
+{
+  "regions": [
+    {
+      "regionId": "<id de la región tal como te llegó>",
+      "blockType": "<uno de los 9 valores>",
+      "mapping": {
+        ...mismos campos que el JSON de single-region...
+        "blockType": "<repite el blockType aquí>"
+      }
+    }
+  ]
+}
+</json>
+
+Para regiones que NO contienen transacciones (inventory_snapshot, summary_totals, notes_other, unknown), igual debes incluir el blockType pero el mapping puede tener campos null — no se intentará normalizar.`
 
 /** Clean a JSON string before parsing: strip BOM, markdown fences, trailing commas. */
 export function cleanJson(json: string): string {

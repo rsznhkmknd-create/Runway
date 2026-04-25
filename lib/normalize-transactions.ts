@@ -1,7 +1,8 @@
 import type { ParsedRow } from './parse-file'
-import type { NeedsReviewPatch } from './schemas/import'
+import type { BlockType, NeedsReviewPatch } from './schemas/import'
 import { parseAmount as parseAmountV2 } from './parsers/amount'
 import { parseDate as parseDateV2 } from './parsers/date'
+import type { DetectedRegion } from './parsers/region-detector'
 
 export type ConfidenceLevel = 'alto' | 'medio' | 'bajo'
 
@@ -55,16 +56,57 @@ export type NeedsReviewReason =
   | 'date_unparseable'
   | 'missing_description'
   | 'missing_type_signal'
+  | 'recurring_needs_date'
+  | 'suspicious_year'
 
 export interface NeedsReviewRow {
   rawRow: ParsedRow
   reason: NeedsReviewReason
   suggestedPatch?: NeedsReviewPatch
+  /** Region the row came from when running multi-region. */
+  regionId?: string
+  /** blockType of the source region — handy for the review UI. */
+  blockType?: BlockType
+}
+
+/** A row from an accounts_receivable region — preserved as-is, not normalized. */
+export interface ReceivableRow {
+  raw: ParsedRow
+  amount: number | null
+  regionId?: string
+  sectionTitle?: string
+}
+
+/** A row from a loans_payable region — preserved as-is, not normalized. */
+export interface LoanRow {
+  raw: ParsedRow
+  originalAmount: number | null
+  remaining: number | null
+  monthlyPayment: number | null
+  regionId?: string
+  sectionTitle?: string
 }
 
 export interface NormalizeResult {
   transactions: NormalizedTransaction[]
   needsReview: NeedsReviewRow[]
+}
+
+export interface MultiRegionResult {
+  transactions: NormalizedTransaction[]
+  needsReview: NeedsReviewRow[]
+  receivables: ReceivableRow[]
+  loans: LoanRow[]
+  /** Per-region log: classification + how many rows it produced. */
+  regionLog: Array<{
+    regionId: string
+    blockType: BlockType
+    sectionTitle?: string
+    transactionsCount: number
+    needsReviewCount: number
+    skipped: boolean
+    reason?: string
+  }>
 }
 
 // ── Amount + Date parsing ────────────────────────────────────────────────────
@@ -318,4 +360,188 @@ export function normalizeTransactions(
   }
 
   return { transactions, needsReview }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Multi-region normalization
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build a "rows" array out of a region's rawMatrix using a 1-indexed header
+ * row LOCAL to the region (1 = first row of the region, 2 = second, etc).
+ * Lets us reuse normalizeTransactions on each region as if it were a tiny
+ * standalone sheet.
+ */
+function regionToRows(region: DetectedRegion, headerRowLocal: number): {
+  rows: ParsedRow[]
+  columns: string[]
+} {
+  const idx = headerRowLocal - 1
+  const matrix = region.rawMatrix.map((row) =>
+    row.map((c) => (c == null ? '' : String(c).trim()))
+  )
+  if (idx < 0 || idx >= matrix.length) return { rows: [], columns: [] }
+  const headers = matrix[idx] ?? []
+  const width = Math.max(...matrix.map((r) => r.length), 0)
+  const columns = Array.from({ length: width }, (_, i) => {
+    const h = (headers[i] ?? '').trim()
+    return h || `__col_${i}__`
+  })
+  const rows: ParsedRow[] = []
+  for (let r = idx + 1; r < matrix.length; r++) {
+    const row = matrix[r] ?? []
+    const entry: ParsedRow = {}
+    let nonEmpty = 0
+    for (let c = 0; c < width; c++) {
+      const v = row[c] ?? ''
+      entry[columns[c]!] = v
+      if (v !== '') nonEmpty++
+    }
+    if (nonEmpty === 0) continue
+    rows.push(entry)
+  }
+  return { rows, columns }
+}
+
+const SKIP_BLOCK_TYPES: ReadonlySet<BlockType> = new Set<BlockType>([
+  'inventory_snapshot',
+  'summary_totals',
+  'notes_other',
+  'unknown',
+])
+
+/** Pull amounts out of a receivables/loans region row using the mapping. */
+function safeAmount(row: ParsedRow, col: string | null | undefined): number | null {
+  if (!col) return null
+  return parseAmountV2(row[col] ?? '').amount
+}
+
+export function normalizeRegions(
+  regionMappings: Array<{
+    region: DetectedRegion
+    blockType: BlockType
+    mapping: ColumnMapping
+  }>,
+  ctx: NormalizeContext = {}
+): MultiRegionResult {
+  const transactions: NormalizedTransaction[] = []
+  const needsReview: NeedsReviewRow[] = []
+  const receivables: ReceivableRow[] = []
+  const loans: LoanRow[] = []
+  const regionLog: MultiRegionResult['regionLog'] = []
+
+  for (const { region, blockType, mapping } of regionMappings) {
+    // ── Skip non-transactional blocks ──────────────────────────────────────
+    if (SKIP_BLOCK_TYPES.has(blockType)) {
+      console.log(
+        `[import] Skipping region ${region.id} (${blockType}): ${region.sectionTitle ?? '(no title)'}`
+      )
+      regionLog.push({
+        regionId: region.id,
+        blockType,
+        sectionTitle: region.sectionTitle,
+        transactionsCount: 0,
+        needsReviewCount: 0,
+        skipped: true,
+        reason: `blockType=${blockType}`,
+      })
+      continue
+    }
+
+    const headerRowLocal = mapping.header_row && mapping.header_row > 0 ? mapping.header_row : 2
+    const { rows } = regionToRows(region, headerRowLocal)
+
+    // ── Receivables → routed to receivables[], NOT to transactions ─────────
+    if (blockType === 'accounts_receivable') {
+      for (const row of rows) {
+        receivables.push({
+          raw: row,
+          amount: safeAmount(row, mapping.monto),
+          regionId: region.id,
+          sectionTitle: region.sectionTitle,
+        })
+      }
+      regionLog.push({
+        regionId: region.id,
+        blockType,
+        sectionTitle: region.sectionTitle,
+        transactionsCount: 0,
+        needsReviewCount: 0,
+        skipped: false,
+        reason: `routed to receivables[] (${rows.length} rows)`,
+      })
+      continue
+    }
+
+    if (blockType === 'loans_payable') {
+      for (const row of rows) {
+        loans.push({
+          raw: row,
+          originalAmount: safeAmount(row, mapping.monto),
+          remaining: safeAmount(row, mapping.monto_debito),
+          monthlyPayment: safeAmount(row, mapping.monto_credito),
+          regionId: region.id,
+          sectionTitle: region.sectionTitle,
+        })
+      }
+      regionLog.push({
+        regionId: region.id,
+        blockType,
+        sectionTitle: region.sectionTitle,
+        transactionsCount: 0,
+        needsReviewCount: 0,
+        skipped: false,
+        reason: `routed to loans[] (${rows.length} rows)`,
+      })
+      continue
+    }
+
+    // ── recurring_expenses → may not have a date column. If mapping.fecha
+    //    is null, every row goes to needsReview('recurring_needs_date'). ──
+    if (blockType === 'recurring_expenses' && !mapping.fecha) {
+      let count = 0
+      for (const row of rows) {
+        const amt = safeAmount(row, mapping.monto)
+        needsReview.push({
+          rawRow: row,
+          reason: 'recurring_needs_date',
+          regionId: region.id,
+          blockType,
+          suggestedPatch: { amount: amt, type: 'expense' },
+        })
+        count++
+      }
+      regionLog.push({
+        regionId: region.id,
+        blockType,
+        sectionTitle: region.sectionTitle,
+        transactionsCount: 0,
+        needsReviewCount: count,
+        skipped: false,
+        reason: 'recurring without fecha column',
+      })
+      continue
+    }
+
+    // ── Normal flow for income_transactions / expense_transactions /
+    //    recurring_expenses with date column ───────────────────────────────
+    const result = normalizeTransactions(rows, mapping, ctx)
+    // Tag each needsReview row with the region it came from.
+    for (const r of result.needsReview) {
+      r.regionId = region.id
+      r.blockType = blockType
+    }
+    transactions.push(...result.transactions)
+    needsReview.push(...result.needsReview)
+    regionLog.push({
+      regionId: region.id,
+      blockType,
+      sectionTitle: region.sectionTitle,
+      transactionsCount: result.transactions.length,
+      needsReviewCount: result.needsReview.length,
+      skipped: false,
+    })
+  }
+
+  return { transactions, needsReview, receivables, loans, regionLog }
 }

@@ -21,6 +21,29 @@ export type TipoMetodo = z.infer<typeof TipoMetodoEnum>
 export const ConfidenceEnum = z.enum(['alto', 'medio', 'bajo'])
 export type Confidence = z.infer<typeof ConfidenceEnum>
 
+/**
+ * Per-region semantic classification produced by Claude. Drives the routing
+ * decision in the normalizer:
+ *   - income_transactions / expense_transactions → normal pipeline → transactions[]
+ *   - recurring_expenses                         → no fecha → needsReview('recurring_needs_date')
+ *   - accounts_receivable / loans_payable       → returned in receivables[] / loans[],
+ *                                                 NOT inserted into transactions
+ *   - inventory_snapshot / summary_totals /     → skipped + logged, never imported
+ *     notes_other / unknown
+ */
+export const BlockTypeEnum = z.enum([
+  'income_transactions',
+  'expense_transactions',
+  'recurring_expenses',
+  'accounts_receivable',
+  'loans_payable',
+  'inventory_snapshot',
+  'summary_totals',
+  'notes_other',
+  'unknown',
+])
+export type BlockType = z.infer<typeof BlockTypeEnum>
+
 export const PerColumnConfidenceSchema = z.object({
   fecha: ConfidenceEnum.nullable().optional(),
   concepto: ConfidenceEnum.nullable().optional(),
@@ -69,10 +92,19 @@ export const ColumnMappingSchema = z
     header_row: z.number().int().positive().optional(),
     per_column_confidence: PerColumnConfidenceSchema.optional(),
     reasoning: z.string().optional(),
+    /** Per-region semantic classification (multi-region only). Optional for
+     *  backward compat with the single-region path. */
+    blockType: BlockTypeEnum.optional(),
   })
   .refine(
     (m) =>
-      !!m.monto || (!!m.monto_debito && !!m.monto_credito),
+      // Skipped block types don't need monto.
+      m.blockType === 'inventory_snapshot' ||
+      m.blockType === 'summary_totals' ||
+      m.blockType === 'notes_other' ||
+      m.blockType === 'unknown' ||
+      !!m.monto ||
+      (!!m.monto_debito && !!m.monto_credito),
     {
       message:
         'El mapping no tiene columna de monto ni par débito/crédito — no se pueden extraer importes.',
@@ -81,6 +113,24 @@ export const ColumnMappingSchema = z
   )
 
 export type ColumnMapping = z.infer<typeof ColumnMappingSchema>
+
+/**
+ * One region's mapping, returned by Claude when the analyze route runs in
+ * multi-region mode. Wraps a ColumnMapping with the regionId the detector
+ * assigned, so the route can route each region to the correct rawMatrix slice.
+ */
+export const RegionMappingSchema = z.object({
+  regionId: z.string().min(1),
+  blockType: BlockTypeEnum,
+  mapping: ColumnMappingSchema,
+})
+export type RegionMapping = z.infer<typeof RegionMappingSchema>
+
+export const RegionsResponseSchema = z.object({
+  regions: z.array(RegionMappingSchema),
+  reasoning: z.string().optional(),
+})
+export type RegionsResponse = z.infer<typeof RegionsResponseSchema>
 
 // ── NormalizedTransactionSchema ──────────────────────────────────────────────
 
@@ -118,6 +168,8 @@ export const NeedsReviewReasonEnum = z.enum([
   'date_unparseable',
   'missing_description',
   'missing_type_signal',
+  'recurring_needs_date',
+  'suspicious_year',
 ])
 export type NeedsReviewReason = z.infer<typeof NeedsReviewReasonEnum>
 

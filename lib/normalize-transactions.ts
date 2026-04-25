@@ -1,5 +1,15 @@
 import type { ParsedRow } from './parse-file'
 
+export type ConfidenceLevel = 'alto' | 'medio' | 'bajo'
+
+export interface PerColumnConfidence {
+  fecha?: ConfidenceLevel | null
+  concepto?: ConfidenceLevel | null
+  monto?: ConfidenceLevel | null
+  tipo?: ConfidenceLevel | null
+  categoria?: ConfidenceLevel | null
+}
+
 export interface ColumnMapping {
   fecha: string | null
   concepto: string | null
@@ -16,9 +26,17 @@ export interface ColumnMapping {
   tipo_valores_ingreso: string[]
   tipo_valores_gasto: string[]
   categoria: string | null
-  confidence: 'alto' | 'medio' | 'bajo'
+  confidence: ConfidenceLevel
   moneda_detectada: string
   notas: string
+  /** Optional: which sheet to use (multi-sheet workbooks). Defaults to the first. */
+  sheet?: string | null
+  /** Optional: 1-indexed header row. Defaults to 1. */
+  header_row?: number | null
+  /** Optional: per-column confidence for the preview UI */
+  per_column_confidence?: PerColumnConfidence
+  /** Optional: Claude's chain-of-thought about the file structure */
+  reasoning?: string
 }
 
 export interface NormalizedTransaction {

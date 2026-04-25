@@ -1,64 +1,154 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { anthropic } from '@/lib/claude'
-import { parseUploadedFile } from '@/lib/parse-file'
+import { parseUploadedFile, type ParsedSheet } from '@/lib/parse-file'
 import {
   normalizeTransactions,
   type ColumnMapping,
   type NormalizedTransaction,
+  type PerColumnConfidence,
 } from '@/lib/normalize-transactions'
 import { inferCategoriesFromDescriptions } from '@/lib/infer-categories'
 import { withRateLimit } from '@/lib/api/with-rate-limit'
 import { aiLimiter } from '@/lib/ratelimit'
+import {
+  ANALYZE_SYSTEM_PROMPT,
+  buildAnalyzeUserPrompt,
+  cleanJson,
+  extractReasoningAndJson,
+  renderSheetsForClaude,
+} from '@/lib/analyze-excel-prompt'
 
 const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.ods']
 const MAX_SIZE = 10 * 1024 * 1024
 
-const SYSTEM_PROMPT = `Eres un experto en análisis de datos financieros. Analizas archivos Excel/CSV con transacciones bancarias o contables y detectas la estructura independientemente de cómo estén nombradas las columnas (español, inglés, siglas, sin encabezado) o en qué orden aparezcan.
+// ── Fallback mapping so we never return a hard failure from the route ────────
+function bestEffortFallbackMapping(sheet: ParsedSheet): ColumnMapping {
+  const cols = sheet.columns
+  const find = (patterns: RegExp[]) =>
+    cols.find((c) => patterns.some((p) => p.test(c.toLowerCase()))) ?? null
 
-Responde ÚNICAMENTE con JSON válido. Sin trailing commas. Sin comentarios. Sin texto adicional antes o después del JSON. Sin markdown, sin backticks, sin prefacios.`
+  const monto = find([/\bmonto\b/, /\bimporte\b/, /\btotal\b/, /\bamount\b/])
+  const fecha = find([/fecha/, /\bdate\b/])
+  const concepto = find([/concepto|descripci|detalle|description|memo|referencia/])
+  const debito = find([/\bdebe\b|\bdebito\b|\bdébito\b|\bdebit\b|\bcargo\b|\bpago\b/])
+  const credito = find([/\bhaber\b|\bcredito\b|\bcrédito\b|\bcredit\b|\babono\b|\bingreso\b/])
 
-function buildUserPrompt(columns: string[], sampleRows: Record<string, string>[]): string {
-  return `Analiza este archivo financiero y devuelve el mapeo de columnas.
-
-COLUMNAS (pueden ser genéricas tipo "Columna 1" si el archivo no tenía cabeceras):
-${JSON.stringify(columns)}
-
-PRIMERAS ${sampleRows.length} FILAS:
-${JSON.stringify(sampleRows, null, 2)}
-
-Responde SOLO con este JSON (sin markdown):
-{
-  "fecha": "nombre_columna_o_null_si_no_existe",
-  "concepto": "nombre_columna_de_descripción_o_null",
-  "monto": "nombre_columna_de_importe_único_o_null",
-  "monto_debito": "nombre_columna_de_débitos_o_null",
-  "monto_credito": "nombre_columna_de_créditos_o_null",
-  "tipo": "nombre_columna_explícita_de_tipo_o_null",
-  "tipo_metodo": "columna_explicita|signo_positivo_es_ingreso|signo_positivo_es_gasto|debito_credito|descripcion_keywords",
-  "tipo_valores_ingreso": ["valores del tipo que significan ingreso"],
-  "tipo_valores_gasto": ["valores del tipo que significan gasto"],
-  "categoria": "nombre_columna_categoría_o_null",
-  "confidence": "alto|medio|bajo",
-  "moneda_detectada": "EUR|MXN|USD|COP|ARS|CLP|GBP|desconocida",
-  "notas": "una frase breve sobre el archivo"
+  return {
+    fecha,
+    concepto,
+    monto: monto ?? null,
+    monto_debito: debito,
+    monto_credito: credito,
+    tipo: null,
+    tipo_metodo: debito && credito ? 'debito_credito' : 'descripcion_keywords',
+    tipo_valores_ingreso: [],
+    tipo_valores_gasto: [],
+    categoria: null,
+    confidence: 'bajo',
+    moneda_detectada: 'desconocida',
+    notas: 'Fallback automático: Claude no respondió con un mapping válido. Revisa y ajusta antes de importar.',
+    sheet: sheet.name,
+    header_row: 1,
+    per_column_confidence: {
+      fecha: fecha ? 'bajo' : null,
+      concepto: concepto ? 'bajo' : null,
+      monto: monto || (debito && credito) ? 'bajo' : null,
+      tipo: null,
+      categoria: null,
+    },
+    reasoning: '',
+  }
 }
 
-REGLAS:
-- Usa EXACTAMENTE el nombre de columna tal como aparece en la lista.
-- Si no hay columna de fecha, pon "fecha": null. Se usará la fecha de importación.
-- Si no hay categoría, pon "categoria": null. Se inferirá después.
-- Si hay débito/crédito separados (debe/haber, pagos/cobros), usa monto_debito + monto_credito con tipo_metodo "debito_credito".
-- Si el signo del monto indica el tipo, usa "signo_positivo_es_ingreso" o "signo_positivo_es_gasto".
-- Si no se detecta un método claro pero hay descripción, usa "descripcion_keywords".
-- Acepta nombres en ESPAÑOL (fecha, importe, concepto, debe, haber, cargo, abono) e INGLÉS (date, amount, description, debit, credit, category).
-- El archivo es VÁLIDO si existe una columna de monto o un par débito/crédito. La fecha es opcional.`
+// Coerce whatever Claude returned into a strict ColumnMapping, filling defaults.
+function coerceMapping(raw: unknown, fallback: ColumnMapping): ColumnMapping {
+  if (!raw || typeof raw !== 'object') return fallback
+  const r = raw as Record<string, unknown>
+
+  const str = (k: string): string | null => {
+    const v = r[k]
+    if (v === null || v === undefined) return null
+    const s = String(v).trim()
+    return s === '' || s.toLowerCase() === 'null' ? null : s
+  }
+
+  const arr = (k: string): string[] => {
+    const v = r[k]
+    if (Array.isArray(v)) return v.map((x) => String(x))
+    return []
+  }
+
+  const metodoRaw = str('tipo_metodo') ?? ''
+  const metodo = (
+    [
+      'columna_explicita',
+      'signo_positivo_es_ingreso',
+      'signo_positivo_es_gasto',
+      'debito_credito',
+      'descripcion_keywords',
+    ].includes(metodoRaw)
+      ? metodoRaw
+      : 'descripcion_keywords'
+  ) as ColumnMapping['tipo_metodo']
+
+  const confRaw = str('confidence') ?? ''
+  const conf = (['alto', 'medio', 'bajo'].includes(confRaw) ? confRaw : 'bajo') as ColumnMapping['confidence']
+
+  const pcc = r.per_column_confidence
+  let per_column_confidence: PerColumnConfidence | undefined
+  if (pcc && typeof pcc === 'object') {
+    const p = pcc as Record<string, unknown>
+    const coerce = (v: unknown): 'alto' | 'medio' | 'bajo' | null => {
+      const s = v === null || v === undefined ? '' : String(v)
+      return s === 'alto' || s === 'medio' || s === 'bajo' ? s : null
+    }
+    per_column_confidence = {
+      fecha: coerce(p.fecha),
+      concepto: coerce(p.concepto),
+      monto: coerce(p.monto),
+      tipo: coerce(p.tipo),
+      categoria: coerce(p.categoria),
+    }
+  }
+
+  const headerRowNum = typeof r.header_row === 'number' ? r.header_row : 1
+
+  return {
+    fecha: str('fecha'),
+    concepto: str('concepto'),
+    monto: str('monto'),
+    monto_debito: str('monto_debito'),
+    monto_credito: str('monto_credito'),
+    tipo: str('tipo'),
+    tipo_metodo: metodo,
+    tipo_valores_ingreso: arr('tipo_valores_ingreso'),
+    tipo_valores_gasto: arr('tipo_valores_gasto'),
+    categoria: str('categoria'),
+    confidence: conf,
+    moneda_detectada: str('moneda_detectada') ?? 'desconocida',
+    notas: str('notas') ?? '',
+    sheet: str('sheet') ?? fallback.sheet ?? null,
+    header_row: headerRowNum,
+    per_column_confidence,
+  }
+}
+
+function pickSheet(sheets: ParsedSheet[], mappingSheet: string | null | undefined): ParsedSheet {
+  if (mappingSheet) {
+    const match = sheets.find((s) => s.name.trim().toLowerCase() === mappingSheet.trim().toLowerCase())
+    if (match && match.rows.length > 0) return match
+  }
+  // Pick the sheet with the most rows (most likely the data sheet)
+  const byRows = [...sheets].sort((a, b) => b.rows.length - a.rows.length)
+  return byRows[0]
 }
 
 export const POST = withRateLimit(async (req: Request) => {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
+  // ── Form data ──────────────────────────────────────────────────────────────
   let formData: FormData
   try {
     formData = await req.formData()
@@ -96,33 +186,42 @@ export const POST = withRateLimit(async (req: Request) => {
     )
   }
 
-  if (parsed.rows.length === 0) {
+  const allSheets = parsed.sheets
+  const warnings = [...parsed.warnings]
+
+  if (allSheets.length === 0 || allSheets.every((s) => s.rows.length === 0)) {
     return NextResponse.json(
       { error: 'El archivo no contiene filas con datos.' },
       { status: 422 }
     )
   }
 
-  if (parsed.rows.length < 2) {
-    return NextResponse.json(
-      {
-        error:
-          'El archivo necesita al menos 2 filas de datos para poder analizarlo (una sola transacción no permite detectar patrones).',
-      },
-      { status: 422 }
+  // ── Render full content for Claude ─────────────────────────────────────────
+  const { markdown, truncated, rowCounts } = renderSheetsForClaude(allSheets)
+  if (truncated) {
+    warnings.push(
+      'El archivo era muy grande; enviamos una parte representativa a la IA para detectar estructura (los datos completos sí se procesan después).'
     )
   }
 
-  // ── Ask Claude to identify the structure ───────────────────────────────────
-  const sampleRows = parsed.rows.slice(0, 15)
-  const userPrompt = buildUserPrompt(parsed.columns, sampleRows)
+  const userPrompt = buildAnalyzeUserPrompt({
+    filename: file.name,
+    sheets: allSheets,
+    markdown,
+    truncated,
+  })
 
-  let mapping: ColumnMapping
+  // ── Call Claude (chain-of-thought, 4096 tokens) ────────────────────────────
+  const defaultFallback = bestEffortFallbackMapping(allSheets[0])
+  let mapping: ColumnMapping = defaultFallback
+  let claudeReasoning = ''
+  let claudeFailureReason: string | null = null
+
   try {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      max_tokens: 4096,
+      system: ANALYZE_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userPrompt }],
     })
 
@@ -131,64 +230,65 @@ export const POST = withRateLimit(async (req: Request) => {
       .map((b) => (b as { type: 'text'; text: string }).text)
       .join('')
 
-    // Strip markdown fences + trailing commas before JSON.parse (strict mode).
-    const cleaned = text
-      .replace(/^```(?:json)?\n?/i, '')
-      .replace(/\n?```$/i, '')
-      .replace(/,(\s*[}\]])/g, '$1')
-      .trim()
-    try {
-      mapping = JSON.parse(cleaned) as ColumnMapping
-    } catch (parseErr) {
-      console.error('[analyze] JSON parse error:', parseErr, 'response:', text.slice(0, 500))
-      return NextResponse.json(
-        {
-          error:
-            'La respuesta del modelo no pudo interpretarse. Esto es un problema temporal — inténtalo de nuevo.',
-        },
-        { status: 502 }
-      )
+    const { reasoning, json } = extractReasoningAndJson(text)
+    claudeReasoning = reasoning
+
+    if (!json) {
+      claudeFailureReason = 'empty_json'
+    } else {
+      try {
+        const parsedJson = JSON.parse(cleanJson(json))
+        mapping = coerceMapping(parsedJson, defaultFallback)
+        mapping.reasoning = reasoning
+      } catch (e) {
+        console.error('[analyze] JSON parse error:', e, 'json snippet:', json.slice(0, 400))
+        claudeFailureReason = 'invalid_json'
+      }
     }
   } catch (err) {
-    console.error('[analyze] Claude error:', err)
-    return NextResponse.json(
-      { error: 'No se pudo analizar el archivo. Inténtalo de nuevo en un momento.' },
-      { status: 502 }
+    console.error('[analyze] Claude call error:', err)
+    claudeFailureReason = 'api_error'
+  }
+
+  if (claudeFailureReason) {
+    warnings.push(
+      'La IA no pudo razonar sobre el archivo por completo — usamos un mapeo automático por patrones. Revisa y ajusta las columnas en el preview antes de importar.'
     )
+  }
+
+  // ── Pick the sheet Claude chose (or the best default) ──────────────────────
+  const chosen = pickSheet(allSheets, mapping.sheet ?? null)
+  if (chosen.name !== allSheets[0].name) {
+    warnings.push(`Usando hoja "${chosen.name}" — es la que parece contener las transacciones.`)
   }
 
   // ── Validate that we can extract amounts ───────────────────────────────────
   const hasMonto = !!mapping.monto || (!!mapping.monto_debito && !!mapping.monto_credito)
   if (!hasMonto) {
-    return NextResponse.json(
-      {
-        error:
-          'Este archivo no parece contener datos financieros. No se detectó ninguna columna de importe.',
-      },
-      { status: 422 }
+    // Even without a clear amount column we still return — with a warning —
+    // so the user can correct in the preview rather than hit a dead-end error.
+    warnings.push(
+      'No se detectó una columna de importe clara. Selecciona manualmente cuál es la columna del monto en el preview.'
     )
   }
 
-  // ── Normalize every row ────────────────────────────────────────────────────
-  const transactions: NormalizedTransaction[] = normalizeTransactions(parsed.rows, mapping)
+  // ── Normalize ──────────────────────────────────────────────────────────────
+  const transactions: NormalizedTransaction[] = hasMonto
+    ? normalizeTransactions(chosen.rows, mapping)
+    : []
 
-  if (transactions.length === 0) {
-    return NextResponse.json(
-      {
-        error:
-          'No se encontraron transacciones válidas en el archivo. Verifica que los montos son numéricos.',
-      },
-      { status: 422 }
+  if (transactions.length === 0 && hasMonto) {
+    warnings.push(
+      'No se encontraron transacciones válidas con el mapeo inferido — los montos podrían no ser numéricos o estar en otra columna.'
     )
   }
 
-  const warnings = [...parsed.warnings]
   if (!mapping.fecha) {
-    warnings.push('El archivo no tenía columna de fecha — se usó la fecha de hoy para todas las transacciones.')
+    warnings.push('No hay columna de fecha — se usó la fecha de hoy para todas las transacciones.')
   }
 
-  // ── If no category column, infer via Claude from descriptions ──────────────
-  if (!mapping.categoria) {
+  // ── Infer categories when not provided ─────────────────────────────────────
+  if (!mapping.categoria && transactions.length > 0) {
     try {
       const descriptions = transactions.map((t) => t.description)
       const categories = await inferCategoriesFromDescriptions(descriptions)
@@ -198,7 +298,6 @@ export const POST = withRateLimit(async (req: Request) => {
       warnings.push('Se infirieron categorías automáticamente a partir de las descripciones.')
     } catch (err) {
       console.error('[analyze] category inference failed:', err)
-      // keep 'Sin categoría' default
     }
   }
 
@@ -206,11 +305,20 @@ export const POST = withRateLimit(async (req: Request) => {
 
   return NextResponse.json({
     filename: file.name,
-    totalRows: parsed.rows.length,
+    totalRows: chosen.rows.length,
     totalTransactions: transactions.length,
     preview,
     transactions,
     mapping,
     warnings,
+    /** Extra metadata to power a richer preview UI */
+    meta: {
+      sheetsCount: allSheets.length,
+      chosenSheet: chosen.name,
+      rowCounts,
+      truncated,
+      reasoning: claudeReasoning,
+      claudeFailureReason,
+    },
   })
 }, aiLimiter)

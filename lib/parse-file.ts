@@ -123,11 +123,56 @@ function resolveFormulas(sheet: XLSX.WorkSheet): number {
   return resolved
 }
 
-function looksLikeHeader(row: Record<string, unknown>): boolean {
-  const values = Object.values(row).map((v) => String(v ?? '').trim()).filter(Boolean)
-  if (values.length === 0) return false
+/** Looks-like-a-date heuristic — DD/MM/YYYY, ISO, or short Spanish months. */
+function cellLooksLikeDate(s: string): boolean {
+  const v = s.trim()
+  if (!v) return false
+  if (/^\d{4}-\d{2}-\d{2}/.test(v)) return true
+  if (/^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}$/.test(v)) return true
+  if (/^\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i.test(v)) return true
+  return false
+}
+
+function cellLooksLikeNumber(s: string): boolean {
+  const v = s.trim().replace(/[€$£¥₹\s]/g, '').replace(/[()]/g, '')
+  if (!v) return false
+  // Accept Spanish ("1.234,56") and English ("1,234.56") number formats.
+  return /^-?\d{1,3}(?:[\.,]\d{3})*(?:[\.,]\d+)?$|^-?\d+(?:[\.,]\d+)?$/.test(v)
+}
+
+/**
+ * Decide if `row` is a header row.
+ *
+ * A header row must:
+ *   1. Have at least 2 non-empty cells (single-cell rows like
+ *      "TIENDA EL BUEN PRECIO - CONTROL FINANCIERO 2024" are titles, not headers).
+ *   2. Be mostly text (>50% non-numeric cells).
+ *   3. Be followed by a row that contains at least one number or date —
+ *      otherwise it's probably another metadata row, not a real header.
+ */
+function looksLikeHeader(
+  row: Record<string, unknown> | unknown[],
+  nextRow: Record<string, unknown> | unknown[] | null
+): boolean {
+  const values = (Array.isArray(row) ? row : Object.values(row))
+    .map((v) => String(v ?? '').trim())
+    .filter(Boolean)
+
+  // Rule 1: a header must have ≥2 non-empty cells.
+  if (values.length < 2) return false
+
+  // Rule 2: header cells are mostly text.
   const nonNumeric = values.filter((v) => isNaN(Number(v.replace(',', '.')))).length
-  return nonNumeric / values.length > 0.5
+  if (nonNumeric / values.length <= 0.5) return false
+
+  // Rule 3: the immediately-following row must contain a number or a date.
+  // (No follow-up rows? Then we have no data anyway — say it's not a header.)
+  if (!nextRow) return false
+  const nextValues = (Array.isArray(nextRow) ? nextRow : Object.values(nextRow))
+    .map((v) => String(v ?? '').trim())
+    .filter(Boolean)
+  const hasDataSignal = nextValues.some((v) => cellLooksLikeNumber(v) || cellLooksLikeDate(v))
+  return hasDataSignal
 }
 
 function parseSheet(
@@ -154,39 +199,53 @@ function parseSheet(
     row.map((c) => String(c ?? '').trim())
   )
 
-  // Structured interpretation — try with native headers first.
-  let rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
-    defval: '',
-    raw: false,
-    dateNF: 'YYYY-MM-DD',
-  })
+  // Decide if row 0 is a real header (looking at row 1 as the data follow-up).
+  const headerRowDetected = looksLikeHeader(matrix[0] ?? [], matrix[1] ?? null)
 
-  let headerRowDetected = true
-  if (rawRows.length === 0 || !looksLikeHeader(rawRows[0] ?? {})) {
-    headerRowDetected = false
+  let cleanRows: ParsedRow[]
+  let columns: string[]
+
+  if (headerRowDetected) {
+    // Use row 0 as headers; rows 1+ as data.
+    const rawHeaders = matrix[0] ?? []
+    const width = Math.max(rawHeaders.length, ...matrix.slice(1).map((r) => r.length), 0)
+    columns = Array.from({ length: width }, (_, i) => {
+      const h = (rawHeaders[i] ?? '').trim()
+      // Two columns may have the same header — disambiguate with the index.
+      return h || `__col_${i}__`
+    })
+    cleanRows = []
+    for (let r = 1; r < matrix.length; r++) {
+      const row = matrix[r]
+      const entry: ParsedRow = {}
+      for (let c = 0; c < width; c++) {
+        entry[columns[c]] = (row[c] ?? '').trim()
+      }
+      const nonEmpty = Object.values(entry).filter((v) => v !== '')
+      if (nonEmpty.length === 0) continue
+      cleanRows.push(entry)
+    }
+  } else {
+    // Header could not be confirmed at row 0 → key rows by NUMERIC INDEX
+    // ("0","1","2"…) instead of inventing "Columna N" names. Claude can later
+    // tell us the real header row via mapping.header_row, and the analyze
+    // route re-indexes using that.
     const width = matrix.length > 0 ? Math.max(...matrix.map((r) => r.length)) : 0
-    const cols = Array.from({ length: width }, (_, i) => `Columna ${i + 1}`)
-    rawRows = matrix.map((r) =>
-      Object.fromEntries(cols.map((c, i) => [c, r[i] ?? '']))
-    )
+    columns = Array.from({ length: width }, (_, i) => String(i))
+    cleanRows = []
+    for (const row of matrix) {
+      const entry: ParsedRow = {}
+      for (let c = 0; c < width; c++) {
+        entry[String(c)] = (row[c] ?? '').trim()
+      }
+      const nonEmpty = Object.values(entry).filter((v) => v !== '')
+      if (nonEmpty.length === 0) continue
+      cleanRows.push(entry)
+    }
     warnings.push(
-      `[${sheetName}] Sin cabeceras — se asignaron nombres genéricos (Columna 1, Columna 2, …).`
+      `[${sheetName}] No se confirmó la fila de cabecera — las filas quedan indexadas por posición (0,1,2…) hasta que la IA confirme la fila real.`
     )
   }
-
-  const cleanRows: ParsedRow[] = []
-  for (const row of rawRows) {
-    const entry = Object.fromEntries(
-      Object.entries(row).map(([k, v]) => [String(k).trim(), String(v ?? '').trim()])
-    )
-    const nonEmpty = Object.values(entry).filter((v) => v !== '')
-    if (nonEmpty.length === 0) continue
-    cleanRows.push(entry)
-  }
-
-  const columns = Array.from(
-    new Set(cleanRows.flatMap((r) => Object.keys(r)))
-  )
 
   return {
     name: sheetName,
@@ -195,6 +254,49 @@ function parseSheet(
     rawMatrix: matrix,
     formulasResolved,
     headerRowDetected,
+  }
+}
+
+/**
+ * Re-index a parsed sheet's `rows` using `headerRow` (1-indexed) as the
+ * source of truth for column names. Used by the analyze route AFTER Claude
+ * tells us "the real headers are on row 5, not row 1".
+ *
+ * Returns a fresh `ParsedSheet` with `rows` keyed by the headers found at
+ * `headerRow`, and only including matrix rows that come after it.
+ */
+export function reindexSheetWithHeaderRow(
+  sheet: ParsedSheet,
+  headerRow: number
+): ParsedSheet {
+  const idx = headerRow - 1
+  if (idx < 0 || idx >= sheet.rawMatrix.length) return sheet
+
+  const rawHeaders = sheet.rawMatrix[idx] ?? []
+  const dataRows = sheet.rawMatrix.slice(idx + 1)
+  const width = Math.max(rawHeaders.length, ...dataRows.map((r) => r.length), 0)
+
+  const columns = Array.from({ length: width }, (_, i) => {
+    const h = (rawHeaders[i] ?? '').trim()
+    return h || `__col_${i}__`
+  })
+
+  const rows: ParsedRow[] = []
+  for (const row of dataRows) {
+    const entry: ParsedRow = {}
+    for (let c = 0; c < width; c++) {
+      entry[columns[c]] = (row[c] ?? '').trim()
+    }
+    const nonEmpty = Object.values(entry).filter((v) => v !== '')
+    if (nonEmpty.length === 0) continue
+    rows.push(entry)
+  }
+
+  return {
+    ...sheet,
+    columns,
+    rows,
+    headerRowDetected: true,
   }
 }
 

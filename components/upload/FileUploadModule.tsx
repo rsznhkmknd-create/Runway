@@ -18,17 +18,27 @@ import { cn, formatCurrency } from '@/lib/utils'
 import { fetchJson, FetchJsonError } from '@/lib/fetch-json'
 import { useToast } from '@/components/ui/Toast'
 import type { NormalizedTransaction } from '@/lib/normalize-transactions'
+import ImportReview, {
+  type ReviewSummary,
+  type StagingReviewRow,
+} from '@/components/upload/ImportReview'
 
 interface AnalyzeResult {
   filename: string
-  totalRows: number
+  totalRows?: number
   totalTransactions: number
   preview: NormalizedTransaction[]
   transactions: NormalizedTransaction[]
   warnings: string[]
+  // New shape from /api/upload/analyze (Prompt 5)
+  importId?: string
+  autoConfirmed?: boolean
+  inserted?: number
+  summary?: ReviewSummary
+  needsReviewRows?: StagingReviewRow[]
 }
 
-type Step = 'idle' | 'analyzing' | 'preview' | 'importing' | 'success' | 'error'
+type Step = 'idle' | 'analyzing' | 'preview' | 'review' | 'importing' | 'success' | 'error'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 const ALLOWED_EXTS = ['.xlsx', '.xls', '.csv', '.ods']
@@ -85,6 +95,23 @@ export default function FileUploadModule() {
         timeoutMs: ANALYZE_TIMEOUT_MS,
       })
       setResult(data)
+      // New flow: when the analyze response was auto-confirmed, the rows
+      // already landed in `transactions`. Skip the review screen and show
+      // the success state directly — preserves the UX for clean files.
+      if (data.autoConfirmed) {
+        setInsertedCount(data.inserted ?? data.totalTransactions)
+        setStep('success')
+        toast.success(`${data.inserted ?? data.totalTransactions} transacciones importadas correctamente.`)
+        setTimeout(() => router.push('/dashboard'), 1200)
+        return
+      }
+      // Multi-region or low-confidence file → user reviews before import.
+      if (data.importId && data.summary && data.needsReviewRows) {
+        setStep('review')
+        return
+      }
+      // Fallback for the old response shape (kept temporarily until staging
+      // is everywhere). Should never trigger after the route refactor lands.
       setStep('preview')
     } catch (err) {
       let message = 'Error al analizar el archivo.'
@@ -194,6 +221,23 @@ export default function FileUploadModule() {
           Claude está leyendo las columnas, evaluando fórmulas e infiriendo categorías
         </p>
       </div>
+    )
+  }
+
+  // ── review (multi-region or low-confidence) ─────────────────────────────
+  if (step === 'review' && result?.importId && result.summary && result.needsReviewRows) {
+    return (
+      <ImportReview
+        importId={result.importId}
+        summary={result.summary}
+        needsReviewRows={result.needsReviewRows}
+        onConfirm={() => {
+          setStep('success')
+          setInsertedCount(result.summary?.transactions ?? 0)
+          setTimeout(() => router.push('/dashboard'), 1200)
+        }}
+        onCancel={() => reset()}
+      />
     )
   }
 

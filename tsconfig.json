@@ -36,6 +36,7 @@
   "exclude": [
     "node_modules",
     "tests/**/*",
+    "scripts/**/*",
     "**/*.test.ts",
     "**/*.test.tsx"
   ]

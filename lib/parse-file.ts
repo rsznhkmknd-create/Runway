@@ -19,6 +19,12 @@ export interface ParsedSheet {
   formulasResolved: number
   /** Whether the sheet had a recognisable header row */
   headerRowDetected: boolean
+  /**
+   * File-locale signal. Detected by counting LATAM ("1.234,56") vs US
+   * ("1,234.56") number patterns across the rawMatrix. Used by parseAmount
+   * to disambiguate single-separator strings.
+   */
+  locale: { decimalSeparator: ',' | '.' | 'unknown' }
 }
 
 export interface ParsedFile {
@@ -175,6 +181,28 @@ function looksLikeHeader(
   return hasDataSignal
 }
 
+/**
+ * Quick scan over the raw matrix counting number-format fingerprints to
+ * decide which decimal separator the file uses. Only counts unambiguous
+ * patterns (must include thousands separators) — single-separator cells
+ * stay ambiguous and fall back to the parser's heuristic at amount time.
+ */
+function detectDecimalSeparator(matrix: string[][]): ',' | '.' | 'unknown' {
+  const latamRegex = /\d{1,3}(?:\.\d{3})+,\d{1,2}/      // 1.234,56
+  const usRegex    = /\d{1,3}(?:,\d{3})+\.\d{1,2}/      // 1,234.56
+  let latam = 0
+  let us = 0
+  for (const row of matrix) {
+    for (const cell of row) {
+      if (latamRegex.test(cell)) latam++
+      if (usRegex.test(cell)) us++
+    }
+  }
+  if (latam > 0 && latam > us * 2) return ','
+  if (us > 0 && us > latam * 2) return '.'
+  return 'unknown'
+}
+
 function parseSheet(
   worksheet: XLSX.WorkSheet,
   sheetName: string,
@@ -247,6 +275,8 @@ function parseSheet(
     )
   }
 
+  const decimalSeparator = detectDecimalSeparator(matrix)
+
   return {
     name: sheetName,
     columns,
@@ -254,6 +284,7 @@ function parseSheet(
     rawMatrix: matrix,
     formulasResolved,
     headerRowDetected,
+    locale: { decimalSeparator },
   }
 }
 

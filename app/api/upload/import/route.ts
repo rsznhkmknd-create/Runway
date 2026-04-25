@@ -4,43 +4,40 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { incrementUsage } from '@/lib/usage'
 import { withRateLimit } from '@/lib/api/with-rate-limit'
 import { aiLimiter } from '@/lib/ratelimit'
-import type { NormalizedTransaction } from '@/lib/normalize-transactions'
-
-interface ImportBody {
-  transactions: NormalizedTransaction[]
-}
-
-function isValidTransaction(t: unknown): t is NormalizedTransaction {
-  if (!t || typeof t !== 'object') return false
-  const o = t as Record<string, unknown>
-  return (
-    typeof o.amount === 'number' &&
-    isFinite(o.amount) &&
-    (o.type === 'income' || o.type === 'expense') &&
-    typeof o.category === 'string' &&
-    typeof o.description === 'string' &&
-    typeof o.date === 'string'
-  )
-}
+import { ImportBodySchema, formatZodIssues } from '@/lib/schemas/import'
 
 export const POST = withRateLimit(async (req) => {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-  let body: ImportBody
+  // ── Parse + validate request body via zod ──────────────────────────────────
+  let bodyJson: unknown
   try {
-    body = (await req.json()) as ImportBody
+    bodyJson = await req.json()
   } catch {
     return NextResponse.json({ error: 'Cuerpo de solicitud inválido' }, { status: 400 })
   }
 
-  if (!Array.isArray(body.transactions) || body.transactions.length === 0) {
-    return NextResponse.json({ error: 'No se recibieron transacciones' }, { status: 400 })
+  const parsed = ImportBodySchema.safeParse(bodyJson)
+  if (!parsed.success) {
+    const issues = formatZodIssues(parsed.error)
+    console.error('[import] schema validation failed:', issues)
+    return NextResponse.json(
+      {
+        error: 'Las transacciones recibidas no son válidas',
+        issues,
+      },
+      { status: 400 }
+    )
   }
 
-  const validTx = body.transactions.filter(isValidTransaction)
-  if (validTx.length === 0) {
-    return NextResponse.json({ error: 'Las transacciones no son válidas' }, { status: 400 })
+  const { transactions, needsReviewApproved } = parsed.data
+
+  // Merge approved-after-review rows into the bulk insert.
+  const merged = [...transactions, ...(needsReviewApproved ?? [])]
+
+  if (merged.length === 0) {
+    return NextResponse.json({ error: 'No se recibieron transacciones' }, { status: 400 })
   }
 
   const supabase = createServiceClient()
@@ -76,8 +73,8 @@ export const POST = withRateLimit(async (req) => {
   const CHUNK = 500
   let inserted = 0
 
-  for (let i = 0; i < validTx.length; i += CHUNK) {
-    const chunk = validTx.slice(i, i + CHUNK).map((tx) => ({
+  for (let i = 0; i < merged.length; i += CHUNK) {
+    const chunk = merged.slice(i, i + CHUNK).map((tx) => ({
       profile_id:  profileId!,
       amount:      tx.amount,
       type:        tx.type,
@@ -100,5 +97,9 @@ export const POST = withRateLimit(async (req) => {
   // Contabilizar la operación de import (una por POST, no por transacción).
   void incrementUsage(profileId, 'imports_count')
 
-  return NextResponse.json({ inserted, total: validTx.length })
+  return NextResponse.json({
+    inserted,
+    total: merged.length,
+    fromReview: needsReviewApproved?.length ?? 0,
+  })
 }, aiLimiter)

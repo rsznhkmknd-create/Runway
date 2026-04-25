@@ -8,27 +8,228 @@ import {
 } from '@/lib/parse-file'
 import {
   normalizeTransactions,
+  normalizeRegions,
   type ColumnMapping,
   type NormalizedTransaction,
   type NeedsReviewRow,
+  type ReceivableRow,
+  type LoanRow,
+  type MultiRegionResult,
 } from '@/lib/normalize-transactions'
 import {
   ColumnMappingSchema,
+  RegionsResponseSchema,
   formatZodIssues,
+  type BlockType,
 } from '@/lib/schemas/import'
 import { inferCategoriesFromDescriptions } from '@/lib/infer-categories'
 import { withRateLimit } from '@/lib/api/with-rate-limit'
 import { aiLimiter } from '@/lib/ratelimit'
 import {
   ANALYZE_SYSTEM_PROMPT,
+  MULTIREGION_PROMPT_ADDENDUM,
   buildAnalyzeUserPrompt,
   cleanJson,
   extractReasoningAndJson,
   renderSheetsForClaude,
+  renderRegionsForClaude,
 } from '@/lib/analyze-excel-prompt'
+import {
+  detectRegions,
+  largestRegionOccupancy,
+  type DetectedRegion,
+} from '@/lib/parsers/region-detector'
 
 const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.ods']
 const MAX_SIZE = 10 * 1024 * 1024
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Multi-region path — runs when 2+ regions are detected, or when a single
+// region covers <=80% of its sheet (i.e. the sheet has tables + scattered
+// notes/totals around). Asks Claude for one mapping per region in a single
+// call, then routes each region through the normalizer based on its blockType.
+// ─────────────────────────────────────────────────────────────────────────────
+async function runMultiRegion(
+  allSheets: ParsedSheet[],
+  regionsBySheet: Map<string, DetectedRegion[]>,
+  allRegions: Array<{ sheet: ParsedSheet; region: DetectedRegion }>,
+  filename: string,
+  warnings: string[]
+) {
+  const { markdown, truncated } = renderRegionsForClaude(allSheets, regionsBySheet)
+  if (truncated) {
+    warnings.push(
+      'El archivo tenía demasiadas regiones para enviar a la IA — algunas se omitieron.'
+    )
+  }
+
+  const userPrompt =
+    `ARCHIVO: ${filename}\n` +
+    `REGIONES DETECTADAS: ${allRegions.length} (en ${allSheets.length} hoja(s))\n\n` +
+    `Cada región se te pasa con su \`regionId\`, \`sectionTitle\` y rawMatrix como tabla markdown ` +
+    `(la columna "row" empieza en 1 LOCAL a la región, no a la hoja). Devuelve un objeto ` +
+    `\`{ "regions": [...] }\` con un mapping por región como te indica el system prompt.\n\n` +
+    markdown +
+    `\n\nEmpieza por <reasoning>…</reasoning>, sigue con <json>…</json>.`
+
+  let regionsResp: Array<{ regionId: string; blockType: BlockType; mapping: ColumnMapping }> = []
+  let claudeReasoning = ''
+  let usage: { input_tokens?: number; output_tokens?: number } = {}
+  let claudeFailureReason: null | 'empty_json' | 'invalid_json' | 'schema_invalid' | 'api_error' = null
+  let claudeFailureDetail: string | null = null
+
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8192,
+      system: ANALYZE_SYSTEM_PROMPT + MULTIREGION_PROMPT_ADDENDUM,
+      messages: [{ role: 'user', content: userPrompt }],
+    })
+    usage = {
+      input_tokens: response.usage.input_tokens,
+      output_tokens: response.usage.output_tokens,
+    }
+
+    const text = response.content
+      .filter((b) => b.type === 'text')
+      .map((b) => (b as { type: 'text'; text: string }).text)
+      .join('')
+
+    const { reasoning, json } = extractReasoningAndJson(text)
+    claudeReasoning = reasoning
+
+    if (!json) {
+      claudeFailureReason = 'empty_json'
+      claudeFailureDetail = 'Claude no devolvió un bloque <json>.'
+    } else {
+      try {
+        const rawJson = JSON.parse(cleanJson(json))
+        const result = RegionsResponseSchema.safeParse(rawJson)
+        if (!result.success) {
+          claudeFailureReason = 'schema_invalid'
+          const issues = formatZodIssues(result.error)
+          claudeFailureDetail = issues.map((i) => `${i.path}: ${i.message}`).join(' | ')
+          console.error('[analyze:multi] schema validation failed:', issues)
+        } else {
+          regionsResp = result.data.regions
+        }
+      } catch (e) {
+        claudeFailureReason = 'invalid_json'
+        claudeFailureDetail = e instanceof Error ? e.message : 'JSON parse error'
+        console.error('[analyze:multi] JSON parse error:', e, json.slice(0, 400))
+      }
+    }
+  } catch (err) {
+    console.error('[analyze:multi] Claude call error:', err)
+    claudeFailureReason = 'api_error'
+    claudeFailureDetail = err instanceof Error ? err.message : 'Unknown API error'
+  }
+
+  if (claudeFailureReason) {
+    return NextResponse.json(
+      {
+        error: 'La IA no devolvió mappings válidos para las regiones detectadas.',
+        reason: claudeFailureReason,
+        detail: claudeFailureDetail,
+        reasoning: claudeReasoning,
+      },
+      { status: 400 }
+    )
+  }
+
+  // Build the (region, blockType, mapping) tuples by joining Claude's response
+  // with our detected regions on regionId.
+  const regionByMappingId = new Map<string, DetectedRegion>(
+    allRegions.map(({ region }) => [region.id, region])
+  )
+  const tuples: Array<{
+    region: DetectedRegion
+    blockType: BlockType
+    mapping: ColumnMapping
+  }> = []
+  const unmatched: string[] = []
+  for (const r of regionsResp) {
+    const region = regionByMappingId.get(r.regionId)
+    if (!region) {
+      unmatched.push(r.regionId)
+      continue
+    }
+    tuples.push({ region, blockType: r.blockType, mapping: r.mapping })
+  }
+  if (unmatched.length) {
+    warnings.push(
+      `La IA devolvió mappings para regiones desconocidas: ${unmatched.join(', ')}. Se ignoraron.`
+    )
+  }
+
+  // For decimalSeparator we use the locale of the first sheet (regions
+  // generally share a single sheet's locale).
+  const decimalSeparator = allSheets[0]?.locale.decimalSeparator
+  const result: MultiRegionResult = normalizeRegions(tuples, { decimalSeparator })
+
+  // Infer categories for transactions that came back without one (cheap +
+  // matches the single-region behaviour).
+  if (result.transactions.length > 0) {
+    try {
+      const descriptions = result.transactions.map((t) => t.description)
+      const categories = await inferCategoriesFromDescriptions(descriptions)
+      for (let i = 0; i < result.transactions.length; i++) {
+        if (categories[i]) result.transactions[i]!.category = categories[i]!
+      }
+    } catch (err) {
+      console.error('[analyze:multi] category inference failed:', err)
+    }
+  }
+
+  // Banner-style warnings for receivables/loans (backend not built yet).
+  if (result.receivables.length > 0) {
+    warnings.push(
+      `Detectamos ${result.receivables.length} cuenta(s) por cobrar — funcionalidad próximamente, no se importarán como transacciones.`
+    )
+  }
+  if (result.loans.length > 0) {
+    warnings.push(
+      `Detectamos ${result.loans.length} préstamo(s) — funcionalidad próximamente, no se importarán como transacciones.`
+    )
+  }
+  if (result.needsReview.length > 0) {
+    warnings.push(
+      `${result.needsReview.length} fila(s) requieren revisión manual antes de importarse.`
+    )
+  }
+
+  const preview = result.transactions.slice(0, 5)
+
+  return NextResponse.json({
+    filename,
+    totalRegions: allRegions.length,
+    totalTransactions: result.transactions.length,
+    preview,
+    transactions: result.transactions,
+    needsReview: result.needsReview,
+    receivables: result.receivables,
+    loans: result.loans,
+    regions: tuples.map(({ region, blockType }) => ({
+      regionId: region.id,
+      sheetName: region.sheetName,
+      sectionTitle: region.sectionTitle,
+      startRow: region.startRow,
+      endRow: region.endRow,
+      startCol: region.startCol,
+      endCol: region.endCol,
+      blockType,
+    })),
+    warnings,
+    meta: {
+      mode: 'multi-region',
+      sheetsCount: allSheets.length,
+      reasoning: claudeReasoning,
+      regionLog: result.regionLog,
+      usage,
+      claudeFailureReason: null as null,
+    },
+  })
+}
 
 function pickSheet(sheets: ParsedSheet[], mappingSheet: string | null | undefined): ParsedSheet {
   if (mappingSheet) {
@@ -93,6 +294,32 @@ export const POST = withRateLimit(async (req: Request) => {
       { error: 'El archivo no contiene filas con datos.' },
       { status: 422 }
     )
+  }
+
+  // ── Region detection (deterministic, sin IA) ──────────────────────────────
+  // Single-region path (legacy) when EITHER:
+  //   - no region passes filters (let the old flow handle the whole sheet), OR
+  //   - exactly one region covers >80% of the sheet's non-empty cells (clean file).
+  // Multi-region path otherwise.
+  type RegionEntry = { sheet: ParsedSheet; region: DetectedRegion }
+  const regionsBySheet = new Map<string, DetectedRegion[]>()
+  const allRegions: RegionEntry[] = []
+  for (const sheet of allSheets) {
+    const regs = detectRegions(sheet)
+    regionsBySheet.set(sheet.name, regs)
+    for (const r of regs) allRegions.push({ sheet, region: r })
+  }
+
+  let useMultiRegion = false
+  if (allRegions.length >= 2) {
+    useMultiRegion = true
+  } else if (allRegions.length === 1) {
+    const occ = largestRegionOccupancy(allRegions[0]!.sheet, [allRegions[0]!.region])
+    if (occ <= 0.8) useMultiRegion = true
+  }
+
+  if (useMultiRegion) {
+    return runMultiRegion(allSheets, regionsBySheet, allRegions, filename, warnings)
   }
 
   // ── Render full content for Claude — ALL rows, ALL sheets ──────────────────

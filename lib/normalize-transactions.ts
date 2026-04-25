@@ -1,5 +1,7 @@
 import type { ParsedRow } from './parse-file'
 import type { NeedsReviewPatch } from './schemas/import'
+import { parseAmount as parseAmountV2 } from './parsers/amount'
+import { parseDate as parseDateV2 } from './parsers/date'
 
 export type ConfidenceLevel = 'alto' | 'medio' | 'bajo'
 
@@ -65,107 +67,36 @@ export interface NormalizeResult {
   needsReview: NeedsReviewRow[]
 }
 
-// ── Amount parsing ────────────────────────────────────────────────────────────
+// ── Amount + Date parsing ────────────────────────────────────────────────────
+//
+// The hand-rolled implementations of parseAmount/parseDate that used to live
+// here were moved to lib/parsers/{amount,date}.ts in Prompt 3 of the import
+// hardening work. They now handle LATAM-specific cases:
+//   - parseAmount: ~/aprox/como/etc., currency codes (MXN/CLP/...), accounting
+//     parens, multi-number cells, Excel formula errors, ambiguous separators.
+//   - parseDate:   Excel serials, chrono-node natural language (es + en),
+//     month-only inputs ("abril"), suspicious_year / future_year flagging.
+//
+// The wrappers below preserve the old narrow signatures for any caller that
+// still imports them (smoke tests, downstream code). They DELEGATE to the new
+// parsers but discard the rich `{ confidence, flags }` payload. New code
+// should import from '@/lib/parsers/amount' and '@/lib/parsers/date' directly.
+//
+// DO NOT delete the wrappers without updating every caller — they're the
+// safety net for a quick rollback if the new parsers misbehave in prod.
 
-/**
- * Parse a currency-ish string into a number. Returns `null` when the input
- * cannot be interpreted as a number — callers must treat `null` as
- * "needs review", NOT as zero. This is the fix for the silent drop bug
- * where unparseable amounts were being coerced to 0 and then skipped by
- * `if (amount === 0) continue`.
- */
+/** @deprecated Use `parseAmount` from `@/lib/parsers/amount` for full output. */
 export function parseAmount(value: string | null | undefined): number | null {
-  if (value === null || value === undefined) return null
-  const trimmed = String(value).trim()
-  if (trimmed === '' || trimmed === '-') return null
-
-  let str = trimmed
-    .replace(/[€$£¥₹\s]/g, '')
-    .replace(/^"|"$/g, '')
-
-  const isAccountingNegative = str.startsWith('(') && str.endsWith(')')
-  str = str.replace(/[()]/g, '')
-
-  if (str === '') return null
-
-  const lastComma = str.lastIndexOf(',')
-  const lastPeriod = str.lastIndexOf('.')
-
-  if (lastComma > lastPeriod) {
-    str = str.replace(/\./g, '').replace(',', '.')
-  } else {
-    str = str.replace(/,/g, '')
-  }
-
-  const amount = parseFloat(str)
-  if (!Number.isFinite(amount)) return null
-  return isAccountingNegative ? -Math.abs(amount) : amount
-}
-
-// ── Date parsing ──────────────────────────────────────────────────────────────
-
-const SPANISH_MONTHS: Record<string, string> = {
-  enero: '01', ene: '01',
-  febrero: '02', feb: '02',
-  marzo: '03', mar: '03',
-  abril: '04', abr: '04',
-  mayo: '05', may: '05',
-  junio: '06', jun: '06',
-  julio: '07', jul: '07',
-  agosto: '08', ago: '08',
-  septiembre: '09', sep: '09', sept: '09',
-  octubre: '10', oct: '10',
-  noviembre: '11', nov: '11',
-  diciembre: '12', dic: '12',
+  return parseAmountV2(value).amount
 }
 
 export function todayIso(): string {
   return new Date().toISOString().split('T')[0]
 }
 
-/**
- * Parse a date string to ISO YYYY-MM-DD. Returns `null` when the format is
- * not recognised — callers must treat null as "needs review", NOT as "today".
- * This is the fix for the silent contamination bug where unparseable dates
- * defaulted to `todayIso()` and polluted the dashboard.
- */
+/** @deprecated Use `parseDate` from `@/lib/parsers/date` for full output. */
 export function parseDate(value: string | null | undefined): string | null {
-  if (value === null || value === undefined) return null
-  const raw = String(value).trim()
-  if (raw === '') return null
-  const str = raw.toLowerCase()
-
-  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.substring(0, 10)
-
-  const dmyNum = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/)
-  if (dmyNum) {
-    const [, d, m, y] = dmyNum
-    const year = y.length === 2 ? `20${y}` : y
-    const dd = d.padStart(2, '0')
-    const mm = m.padStart(2, '0')
-    // Sanity — reject obviously-bad month/day combos instead of generating
-    // "2024-13-45" which would then bomb further downstream.
-    if (Number(mm) < 1 || Number(mm) > 12) return null
-    if (Number(dd) < 1 || Number(dd) > 31) return null
-    return `${year}-${mm}-${dd}`
-  }
-
-  const spanishFull = str.match(/^(\d{1,2})?[\s\-\/]?([a-záéíóúñ]{3,})[\s\-\/](\d{2,4})$/i)
-  if (spanishFull) {
-    const [, d, m, y] = spanishFull
-    const monthKey = Object.keys(SPANISH_MONTHS).find((k) => m.toLowerCase().startsWith(k))
-    if (monthKey) {
-      const month = SPANISH_MONTHS[monthKey]
-      const year = y.length === 2 ? `20${y}` : y
-      const day = d ? d.padStart(2, '0') : '01'
-      return `${year}-${month}-${day}`
-    }
-  }
-
-  const parsed = new Date(raw)
-  if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0]
-
-  return null
+  return parseDateV2(value).date
 }
 
 // ── Description-based type inference (fallback) ────────────────────────────────
@@ -234,19 +165,64 @@ function detectType(
 // ── Main normalizer ────────────────────────────────────────────────────────────
 
 /**
+ * One-pass scan extracting every 4-digit year from the rows. Used to compute
+ * a yearRange that gets passed to parseDate for suspicious_year detection.
+ * Cheap regex-only — does NOT call parseDate (would be O(n) chrono parses).
+ */
+function detectYearRange(rows: ParsedRow[]): [number, number] | undefined {
+  const years = new Set<number>()
+  const yearRegex = /\b(?:19|20|21)\d{2}\b/g
+  for (const row of rows) {
+    for (const value of Object.values(row)) {
+      const matches = String(value).match(yearRegex)
+      if (!matches) continue
+      for (const m of matches) {
+        const year = Number(m)
+        if (year >= 1990 && year <= 2099) years.add(year)
+      }
+    }
+  }
+  if (years.size === 0) return undefined
+  const arr = Array.from(years).sort((a, b) => a - b)
+  return [arr[0], arr[arr.length - 1]]
+}
+
+export type NormalizeContext = {
+  /** Decimal separator detected at the file level — passed through to parseAmount. */
+  decimalSeparator?: ',' | '.' | 'unknown'
+}
+
+/**
  * Apply Claude's column mapping to every parsed row. Returns:
  *   - `transactions`: rows that parsed cleanly (including amount === 0,
  *                     which is a legal value — refunds, reconciliations).
  *   - `needsReview`:  rows whose amount or date couldn't be parsed. They
  *                     are NOT silently dropped and NOT assigned today's
  *                     date. The UI surfaces them so the user fixes them.
+ *
+ * The optional `ctx.decimalSeparator` should come from the parsed sheet's
+ * `locale.decimalSeparator` so the amount parser can disambiguate
+ * single-separator strings ("1,234" → could be 1.234 or 1234 thousand).
  */
 export function normalizeTransactions(
   rows: ParsedRow[],
-  mapping: ColumnMapping
+  mapping: ColumnMapping,
+  ctx: NormalizeContext = {}
 ): NormalizeResult {
   const transactions: NormalizedTransaction[] = []
   const needsReview: NeedsReviewRow[] = []
+
+  // File-level locale for amount parsing.
+  const decSep =
+    ctx.decimalSeparator === ',' || ctx.decimalSeparator === '.'
+      ? ctx.decimalSeparator
+      : undefined
+  const amountCtx = decSep ? { decimalSeparator: decSep } : {}
+
+  // File-level year range for date parsing (suspicious_year flagging).
+  const yearRange = detectYearRange(rows)
+  const fileYear = yearRange ? yearRange[1] : undefined
+  const dateCtx = { fileYear, yearRange }
 
   for (const row of rows) {
     const values = Object.values(row).filter((v) => v.trim() !== '')
@@ -257,10 +233,16 @@ export function normalizeTransactions(
     let signedForTypeDetection: number | null = null
 
     if (mapping.tipo_metodo === 'debito_credito') {
-      const credit = mapping.monto_credito ? parseAmount(row[mapping.monto_credito] ?? '') : null
-      const debit = mapping.monto_debito ? parseAmount(row[mapping.monto_debito] ?? '') : null
-      const bothNull = credit === null && debit === null
-      if (bothNull) {
+      const creditP = mapping.monto_credito
+        ? parseAmountV2(row[mapping.monto_credito] ?? '', amountCtx)
+        : null
+      const debitP = mapping.monto_debito
+        ? parseAmountV2(row[mapping.monto_debito] ?? '', amountCtx)
+        : null
+      const credit = creditP?.amount ?? null
+      const debit = debitP?.amount ?? null
+
+      if (credit === null && debit === null) {
         needsReview.push({
           rawRow: row,
           reason: 'amount_unparseable',
@@ -270,7 +252,10 @@ export function normalizeTransactions(
       }
       amount = Math.abs((credit ?? 0) > 0 ? (credit ?? 0) : (debit ?? 0))
     } else {
-      const signed = mapping.monto ? parseAmount(row[mapping.monto] ?? '') : null
+      const parsedAmt = mapping.monto
+        ? parseAmountV2(row[mapping.monto] ?? '', amountCtx)
+        : null
+      const signed = parsedAmt?.amount ?? null
       signedForTypeDetection = signed
       if (signed === null) {
         needsReview.push({
@@ -304,8 +289,8 @@ export function normalizeTransactions(
     // ── Date ──────────────────────────────────────────────────────────────
     let date: string
     if (mapping.fecha) {
-      const parsed = parseDate(row[mapping.fecha] ?? '')
-      if (parsed === null) {
+      const parsedDate = parseDateV2(row[mapping.fecha] ?? '', dateCtx)
+      if (parsedDate.date === null) {
         needsReview.push({
           rawRow: row,
           reason: 'date_unparseable',
@@ -313,7 +298,7 @@ export function normalizeTransactions(
         })
         continue
       }
-      date = parsed
+      date = parsedDate.date
     } else {
       // No date column mapped at all — use import date. This is explicit and
       // called out in warnings upstream; not a silent fallback per row.

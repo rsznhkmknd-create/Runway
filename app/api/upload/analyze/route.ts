@@ -214,7 +214,9 @@ export const POST = withRateLimit(async (req: Request) => {
   let needsReview: NeedsReviewRow[] = []
 
   if (hasMonto) {
-    const result = normalizeTransactions(chosen.rows, mapping)
+    const result = normalizeTransactions(chosen.rows, mapping, {
+      decimalSeparator: chosen.locale?.decimalSeparator,
+    })
     transactions = result.transactions
     needsReview = result.needsReview
   }

@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
+import crypto from 'node:crypto'
 import { anthropic } from '@/lib/claude'
+import { createServiceClient } from '@/lib/supabase/server'
+import { calculateCost } from '@/lib/pricing'
+import {
+  buildStagingRows,
+  insertStagingChunked,
+  commitStagingToTransactions,
+} from '@/lib/import-staging'
 import {
   parseUploadedFile,
   reindexSheetWithHeaderRow,
@@ -43,6 +51,213 @@ import {
 const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.ods']
 const MAX_SIZE = 10 * 1024 * 1024
 
+// ─── Shared helpers (used by both single- and multi-region paths) ────────────
+
+/**
+ * Resolve the Supabase profile.id for a Clerk userId. Auto-creates the row
+ * if the Clerk webhook hasn't fired yet — same fallback the import route uses.
+ */
+async function getOrCreateProfileId(
+  supabase: ReturnType<typeof createServiceClient>,
+  userId: string
+): Promise<string | null> {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('clerk_id', userId)
+    .single()
+  if (profile?.id) return profile.id
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: created, error } = await (supabase.from('profiles') as any)
+    .insert({ clerk_id: userId, email: `${userId}@pending.local`, currency: 'EUR' })
+    .select('id')
+    .single()
+  if (error || !created) return null
+  return (created as { id: string }).id
+}
+
+type FinalizeArgs = {
+  importId: string
+  userId: string
+  filename: string
+  startTime: number
+  transactions: NormalizedTransaction[]
+  needsReview: NeedsReviewRow[]
+  receivables: ReceivableRow[]
+  loans: LoanRow[]
+  // Auto-confirm decision inputs
+  regionsCount: number
+  topConfidence: 'alto' | 'medio' | 'bajo'
+  // Telemetry inputs
+  sheetsCount: number
+  regionsByType: Record<string, number>
+  skippedCount: number
+  usage: { input_tokens: number; output_tokens: number }
+  // For the response payload
+  blocks: Array<{ type: string; count: number; rowsExtracted: number }>
+  warnings: string[]
+  reasoning: string
+  mode: 'single-region' | 'multi-region'
+  regionsResponse?: Array<{
+    regionId: string
+    sheetName: string
+    sectionTitle?: string
+    startRow: number
+    endRow: number
+    startCol: number
+    endCol: number
+    blockType: string
+  }>
+}
+
+/**
+ * Common post-analysis flow: insert all rows into import_staging, decide
+ * auto-confirm, optionally commit to the live transactions table, and emit
+ * a telemetry row to import_metrics. Returns the JSON response payload.
+ *
+ * Auto-confirm conditions (per Prompt 5 spec):
+ *   - needsReview.length === 0
+ *   - regionsCount === 1
+ *   - topConfidence === 'alto'
+ *   - receivables.length === 0
+ *   - loans.length === 0
+ */
+async function finalizeImport(args: FinalizeArgs) {
+  const {
+    importId, userId, filename, startTime,
+    transactions, needsReview, receivables, loans,
+    regionsCount, topConfidence,
+    sheetsCount, regionsByType, skippedCount, usage,
+    blocks, warnings, reasoning, mode, regionsResponse,
+  } = args
+
+  const supabase = createServiceClient()
+  const profileId = await getOrCreateProfileId(supabase, userId)
+  if (!profileId) {
+    return NextResponse.json(
+      { error: 'No se pudo crear o encontrar el perfil del usuario.' },
+      { status: 500 }
+    )
+  }
+
+  // 1. Stage every row.
+  const stagingRows = buildStagingRows({
+    importId, profileId, transactions, needsReview, receivables, loans,
+  })
+  try {
+    await insertStagingChunked(supabase, stagingRows)
+  } catch (err) {
+    console.error('[analyze] staging insert failed:', err)
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Error al guardar el import' },
+      { status: 500 }
+    )
+  }
+
+  // 2. Auto-confirm decision.
+  const autoConfirmed =
+    needsReview.length === 0 &&
+    regionsCount === 1 &&
+    topConfidence === 'alto' &&
+    receivables.length === 0 &&
+    loans.length === 0
+
+  let inserted = 0
+  if (autoConfirmed) {
+    try {
+      const res = await commitStagingToTransactions(supabase, importId, profileId, ['pending'])
+      inserted = res.inserted
+    } catch (err) {
+      console.error('[analyze] auto-confirm commit failed:', err)
+      // Don't fail the response — the user can still confirm manually.
+      warnings.push(
+        'No pudimos auto-confirmar la importación; revisa el preview para confirmarla manualmente.'
+      )
+    }
+  }
+
+  // 3. Telemetry — never blocks the response.
+  const cost_usd = calculateCost(usage)
+  const duration_ms = Date.now() - startTime
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  void (supabase.from('import_metrics') as any)
+    .insert({
+      import_id: importId,
+      profile_id: profileId,
+      filename,
+      sheets_count: sheetsCount,
+      regions_detected: regionsCount,
+      regions_by_type: regionsByType,
+      transactions_extracted: transactions.length,
+      needs_review_count: needsReview.length,
+      skipped_count: skippedCount,
+      receivables_count: receivables.length,
+      loans_count: loans.length,
+      tokens_input: usage.input_tokens,
+      tokens_output: usage.output_tokens,
+      cost_usd,
+      duration_ms,
+    })
+    .then(({ error }: { error: { message: string } | null }) => {
+      if (error) console.error('[analyze] metrics insert failed:', error.message)
+    })
+
+  // 4. Build the response. Returns full lists for the legacy /import path
+  //    (the new staging flow doesn't need them, but keeping them lets the
+  //    UI render a preview without an extra fetch).
+  const needsReviewRows = stagingRows
+    .filter((r) => r.status === 'needs_review')
+    .map((r, i) => ({
+      // Synthetic id so the UI can key — real id comes from /needs-review endpoint
+      // when the UI re-fetches after analyze. For now, the analyze response
+      // doesn't include real staging ids; the UI can re-fetch via /needs-review.
+      tempId: `tmp_${i}`,
+      amount: r.amount,
+      type: r.type,
+      category: r.category,
+      description: r.description,
+      date: r.date,
+      review_flags: r.review_flags,
+      raw_row: r.raw_row,
+      region_id: r.region_id,
+      block_type: r.block_type,
+    }))
+
+  return NextResponse.json({
+    importId,
+    autoConfirmed,
+    inserted: autoConfirmed ? inserted : 0,
+    summary: {
+      transactions: transactions.length,
+      needsReview: needsReview.length,
+      skipped: skippedCount,
+      receivables: receivables.length,
+      loans: loans.length,
+      blocks,
+    },
+    needsReviewRows,
+    // Mirror of the legacy fields so the existing FileUploadModule keeps
+    // working on the auto-confirm path until the new ImportReview takes over.
+    filename,
+    transactions,
+    needsReview,
+    receivables,
+    loans,
+    warnings,
+    meta: {
+      mode,
+      sheetsCount,
+      regionsByType,
+      reasoning,
+      usage,
+      cost_usd,
+      duration_ms,
+      regions: regionsResponse,
+    },
+  })
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Multi-region path — runs when 2+ regions are detected, or when a single
 // region covers <=80% of its sheet (i.e. the sheet has tables + scattered
@@ -54,7 +269,10 @@ async function runMultiRegion(
   regionsBySheet: Map<string, DetectedRegion[]>,
   allRegions: Array<{ sheet: ParsedSheet; region: DetectedRegion }>,
   filename: string,
-  warnings: string[]
+  warnings: string[],
+  userId: string,
+  importId: string,
+  startTime: number
 ) {
   const { markdown, truncated } = renderRegionsForClaude(allSheets, regionsBySheet)
   if (truncated) {
@@ -198,18 +416,52 @@ async function runMultiRegion(
     )
   }
 
-  const preview = result.transactions.slice(0, 5)
+  // Build telemetry inputs from regionLog.
+  const regionsByType: Record<string, number> = {}
+  let skippedCount = 0
+  const blocks: Array<{ type: string; count: number; rowsExtracted: number }> = []
+  for (const log of result.regionLog) {
+    regionsByType[log.blockType] = (regionsByType[log.blockType] ?? 0) + 1
+    if (log.skipped) skippedCount++
+    blocks.push({
+      type: log.blockType,
+      count: 1,
+      rowsExtracted: log.transactionsCount,
+    })
+  }
 
-  return NextResponse.json({
+  // Top confidence across all region mappings — auto-confirm needs every
+  // mapping at "alto" (and even then the multi-region path rarely qualifies
+  // because it has 2+ regions, but a 1-region/<80%-occupancy file might).
+  let topConfidence: 'alto' | 'medio' | 'bajo' = 'alto'
+  for (const t of tuples) {
+    if (t.mapping.confidence === 'bajo') { topConfidence = 'bajo'; break }
+    if (t.mapping.confidence === 'medio' && topConfidence === 'alto') topConfidence = 'medio'
+  }
+
+  return finalizeImport({
+    importId,
+    userId,
     filename,
-    totalRegions: allRegions.length,
-    totalTransactions: result.transactions.length,
-    preview,
+    startTime,
     transactions: result.transactions,
     needsReview: result.needsReview,
     receivables: result.receivables,
     loans: result.loans,
-    regions: tuples.map(({ region, blockType }) => ({
+    regionsCount: allRegions.length,
+    topConfidence,
+    sheetsCount: allSheets.length,
+    regionsByType,
+    skippedCount,
+    usage: {
+      input_tokens: usage.input_tokens ?? 0,
+      output_tokens: usage.output_tokens ?? 0,
+    },
+    blocks,
+    warnings,
+    reasoning: claudeReasoning,
+    mode: 'multi-region',
+    regionsResponse: tuples.map(({ region, blockType }) => ({
       regionId: region.id,
       sheetName: region.sheetName,
       sectionTitle: region.sectionTitle,
@@ -219,15 +471,6 @@ async function runMultiRegion(
       endCol: region.endCol,
       blockType,
     })),
-    warnings,
-    meta: {
-      mode: 'multi-region',
-      sheetsCount: allSheets.length,
-      reasoning: claudeReasoning,
-      regionLog: result.regionLog,
-      usage,
-      claudeFailureReason: null as null,
-    },
   })
 }
 
@@ -244,6 +487,8 @@ function pickSheet(sheets: ParsedSheet[], mappingSheet: string | null | undefine
 }
 
 export const POST = withRateLimit(async (req: Request) => {
+  const startTime = Date.now()
+  const importId = crypto.randomUUID()
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
@@ -319,7 +564,10 @@ export const POST = withRateLimit(async (req: Request) => {
   }
 
   if (useMultiRegion) {
-    return runMultiRegion(allSheets, regionsBySheet, allRegions, filename, warnings)
+    return runMultiRegion(
+      allSheets, regionsBySheet, allRegions, filename, warnings,
+      userId, importId, startTime
+    )
   }
 
   // ── Render full content for Claude — ALL rows, ALL sheets ──────────────────
@@ -342,6 +590,7 @@ export const POST = withRateLimit(async (req: Request) => {
   let claudeReasoning = ''
   let claudeFailureReason: null | 'empty_json' | 'invalid_json' | 'schema_invalid' | 'api_error' = null
   let claudeFailureDetail: string | null = null
+  let usage: { input_tokens: number; output_tokens: number } = { input_tokens: 0, output_tokens: 0 }
 
   try {
     const response = await anthropic.messages.create({
@@ -350,6 +599,10 @@ export const POST = withRateLimit(async (req: Request) => {
       system: ANALYZE_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userPrompt }],
     })
+    usage = {
+      input_tokens: response.usage.input_tokens,
+      output_tokens: response.usage.output_tokens,
+    }
 
     const text = response.content
       .filter((b) => b.type === 'text')
@@ -478,24 +731,31 @@ export const POST = withRateLimit(async (req: Request) => {
     }
   }
 
-  const preview = transactions.slice(0, 5)
-
-  return NextResponse.json({
+  // Single-region path uses finalizeImport too — staging insert + auto-confirm
+  // + telemetry. Block summary is a single entry.
+  const blocks = [{
+    type: 'income_transactions',
+    count: 1,
+    rowsExtracted: transactions.length,
+  }]
+  return finalizeImport({
+    importId,
+    userId,
     filename,
-    totalRows: chosen.rows.length,
-    totalTransactions: transactions.length,
-    preview,
+    startTime,
     transactions,
     needsReview,
-    mapping,
+    receivables: [],
+    loans: [],
+    regionsCount: 1,
+    topConfidence: mapping.confidence,
+    sheetsCount: allSheets.length,
+    regionsByType: { single_region: 1 },
+    skippedCount: 0,
+    usage,
+    blocks,
     warnings,
-    meta: {
-      sheetsCount: allSheets.length,
-      chosenSheet: chosen.name,
-      rowCounts,
-      truncated,
-      reasoning: claudeReasoning,
-      claudeFailureReason,
-    },
+    reasoning: claudeReasoning,
+    mode: 'single-region',
   })
 }, aiLimiter)

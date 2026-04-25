@@ -279,6 +279,108 @@ export interface Database {
           }
         ]
       }
+      import_staging: {
+        Row: {
+          id: string
+          import_id: string
+          profile_id: string
+          amount: number | null
+          type: 'income' | 'expense' | 'recurring' | 'receivable' | 'loan' | null
+          category: string | null
+          description: string | null
+          date: string | null
+          status: 'pending' | 'needs_review' | 'confirmed' | 'rejected'
+          review_flags: Json | null
+          raw_row: Json
+          region_id: string | null
+          block_type: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          import_id: string
+          profile_id: string
+          amount?: number | null
+          type?: 'income' | 'expense' | 'recurring' | 'receivable' | 'loan' | null
+          category?: string | null
+          description?: string | null
+          date?: string | null
+          status?: 'pending' | 'needs_review' | 'confirmed' | 'rejected'
+          review_flags?: Json | null
+          raw_row: Json
+          region_id?: string | null
+          block_type?: string | null
+          created_at?: string
+        }
+        Update: {
+          status?: 'pending' | 'needs_review' | 'confirmed' | 'rejected'
+          amount?: number | null
+          type?: 'income' | 'expense' | 'recurring' | 'receivable' | 'loan' | null
+          category?: string | null
+          description?: string | null
+          date?: string | null
+          review_flags?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'import_staging_profile_id_fkey'
+            columns: ['profile_id']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      import_metrics: {
+        Row: {
+          id: string
+          import_id: string
+          profile_id: string
+          filename: string | null
+          sheets_count: number | null
+          regions_detected: number | null
+          regions_by_type: Json | null
+          transactions_extracted: number | null
+          needs_review_count: number | null
+          skipped_count: number | null
+          receivables_count: number | null
+          loans_count: number | null
+          tokens_input: number | null
+          tokens_output: number | null
+          cost_usd: number | null
+          duration_ms: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          import_id: string
+          profile_id: string
+          filename?: string | null
+          sheets_count?: number | null
+          regions_detected?: number | null
+          regions_by_type?: Json | null
+          transactions_extracted?: number | null
+          needs_review_count?: number | null
+          skipped_count?: number | null
+          receivables_count?: number | null
+          loans_count?: number | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          cost_usd?: number | null
+          duration_ms?: number | null
+          created_at?: string
+        }
+        Update: Partial<{
+          filename: string | null
+        }>
+        Relationships: [
+          {
+            foreignKeyName: 'import_metrics_profile_id_fkey'
+            columns: ['profile_id']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       activity_logs: {
         Row: {
           id: string

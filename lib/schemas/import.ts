@@ -121,18 +121,34 @@ export const NeedsReviewReasonEnum = z.enum([
 ])
 export type NeedsReviewReason = z.infer<typeof NeedsReviewReasonEnum>
 
+/**
+ * Patch shape for a row flagged for review. Each field is BOTH nullable
+ * AND optional:
+ *   - undefined → "we have no opinion on this field"
+ *   - null      → "the field existed in the source but couldn't be parsed"
+ *   - value     → "we suggest this value"
+ *
+ * This distinction matters because Partial<NormalizedTransaction> alone
+ * gives `T | undefined`, which silently coerces null suggestions into
+ * "absent" and triggers a TS build error when we push { amount: null }.
+ */
+export const NeedsReviewPatchSchema = z.object({
+  amount: z.number().finite().nullable().optional(),
+  type: z.enum(['income', 'expense']).nullable().optional(),
+  category: z.string().min(1).nullable().optional(),
+  description: z.string().nullable().optional(),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
+})
+export type NeedsReviewPatch = z.infer<typeof NeedsReviewPatchSchema>
+
 export const NeedsReviewRowSchema = z.object({
   rawRow: ParsedRowSchema,
   reason: NeedsReviewReasonEnum,
-  suggestedPatch: z
-    .object({
-      amount: z.number().nullable().optional(),
-      type: z.enum(['income', 'expense']).optional(),
-      category: z.string().optional(),
-      description: z.string().optional(),
-      date: z.string().optional(),
-    })
-    .optional(),
+  suggestedPatch: NeedsReviewPatchSchema.optional(),
 })
 export type NeedsReviewRow = z.infer<typeof NeedsReviewRowSchema>
 

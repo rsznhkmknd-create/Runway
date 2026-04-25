@@ -1,4 +1,5 @@
 import type { ParsedRow } from './parse-file'
+import type { NeedsReviewPatch } from './schemas/import'
 
 export type ConfidenceLevel = 'alto' | 'medio' | 'bajo'
 
@@ -56,7 +57,7 @@ export type NeedsReviewReason =
 export interface NeedsReviewRow {
   rawRow: ParsedRow
   reason: NeedsReviewReason
-  suggestedPatch?: Partial<NormalizedTransaction & { amount: number | null }>
+  suggestedPatch?: NeedsReviewPatch
 }
 
 export interface NormalizeResult {

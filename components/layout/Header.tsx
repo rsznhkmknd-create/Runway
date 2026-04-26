@@ -5,15 +5,18 @@ import ThemeToggle from '@/components/ui/ThemeToggle'
 
 export default function Header() {
   return (
-    <header className="bg-app border-b border-border px-6 lg:px-8 h-16 flex items-center justify-between shrink-0">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card/80 px-4 backdrop-blur-sm lg:px-6 shrink-0">
+      {/* Left — mobile logo (sidebar handles desktop branding) */}
       <div className="flex items-center gap-3">
-        {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-2">
-          <FinsightLogo size={26} />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-mint">
+            <FinsightLogo size={18} color="#FFFFFF" />
+          </div>
           <span className="font-semibold text-text-primary text-sm tracking-tight">Finsight</span>
         </div>
       </div>
 
+      {/* Right — actions */}
       <div className="flex items-center gap-1 ml-auto">
         <ThemeToggle />
         <BellBadge />
@@ -21,7 +24,7 @@ export default function Header() {
         <UserButton
           appearance={{
             elements: {
-              avatarBox: 'w-8 h-8',
+              avatarBox: 'w-9 h-9 ring-2 ring-transparent transition-all hover:ring-mint/30',
             },
           }}
         />

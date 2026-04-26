@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   TrendingDown,
+  TrendingUp,
   FileText,
   ArrowLeftRight,
   Settings,
@@ -21,6 +22,7 @@ const navItems = [
   { href: '/dashboard/facturas',     label: 'Facturas',    icon: FileText       },
   { href: '/dashboard/movimientos',  label: 'Movimientos', icon: ArrowLeftRight },
   { href: '/dashboard/reportes',     label: 'Reportes',    icon: FileBarChart   },
+  { href: '/dashboard/forecast',     label: 'Forecast',    icon: TrendingUp     },
   { href: '/dashboard/alertas',      label: 'Alertas',     icon: Bell           },
   { href: '/dashboard/importar',     label: 'Importar',    icon: Upload         },
   { href: '/dashboard/ajustes',      label: 'Ajustes',     icon: Settings       },

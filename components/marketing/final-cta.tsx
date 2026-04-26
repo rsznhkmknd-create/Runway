@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { BlurFade } from './blur-fade'
+import { SocialProof } from './social-proof'
 
 export function FinalCTA() {
   return (
@@ -15,21 +16,23 @@ export function FinalCTA() {
       />
       <div className="relative max-w-3xl mx-auto px-6 text-center">
         <BlurFade inView delay={0}>
-          <h2 className="text-[36px] sm:text-[48px] font-semibold tracking-[-0.03em] leading-[1.05] text-white">
-            Deja las hojas de cálculo.
-            <br />
+          <h2 className="text-[34px] sm:text-[44px] font-semibold tracking-[-0.025em] leading-[1.1] text-white">
+            Sé de los primeros con un{' '}
             <span className="bg-gradient-to-r from-[#00C48C] to-[#2ed087] bg-clip-text text-transparent">
-              Recupera el control de tu caja.
-            </span>
+              CFO digital
+            </span>{' '}
+            que te ayuda a tomar decisiones fundadas.
           </h2>
         </BlurFade>
-        <BlurFade inView delay={150}>
-          <p className="mt-6 text-[17px] text-white/55 leading-relaxed max-w-[520px] mx-auto">
-            Crea tu cuenta en menos de un minuto y empieza a ver tu runway esta misma tarde.
-          </p>
+
+        <BlurFade inView delay={200}>
+          <div className="mt-10 flex justify-center">
+            <SocialProof />
+          </div>
         </BlurFade>
-        <BlurFade inView delay={300}>
-          <div className="mt-10">
+
+        <BlurFade inView delay={350}>
+          <div className="mt-8">
             <Link
               href="/sign-up"
               className="group relative inline-flex items-center gap-2 overflow-hidden bg-[#00C48C] hover:bg-[#00a374] text-[#07160E] font-semibold px-6 py-3.5 rounded-xl transition-all duration-200 text-[14px] shadow-[0_10px_40px_-10px_rgba(0,196,140,0.55)] hover:shadow-[0_14px_50px_-8px_rgba(0,196,140,0.7)] active:scale-[0.97]"

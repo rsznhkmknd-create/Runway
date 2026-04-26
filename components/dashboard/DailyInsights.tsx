@@ -28,11 +28,26 @@ type Props = {
 
 const SEVERITY: Record<
   InsightSeverity,
-  { Icon: typeof CheckCircle2; color: string }
+  { Icon: typeof CheckCircle2; color: string; bar: string; title: string }
 > = {
-  positive: { Icon: CheckCircle2,   color: 'text-brand-600' },
-  warning:  { Icon: AlertTriangle,  color: 'text-amber-500' },
-  critical: { Icon: AlertCircle,    color: 'text-red-500'   },
+  positive: {
+    Icon: CheckCircle2,
+    color: 'text-income',
+    bar: 'bg-income',
+    title: 'Bien',
+  },
+  warning: {
+    Icon: AlertTriangle,
+    color: 'text-amber',
+    bar: 'bg-amber',
+    title: 'Vigilar',
+  },
+  critical: {
+    Icon: AlertCircle,
+    color: 'text-expense',
+    bar: 'bg-expense',
+    title: 'Atención',
+  },
 }
 
 export default function DailyInsights({ initial }: Props) {
@@ -68,28 +83,34 @@ export default function DailyInsights({ initial }: Props) {
   }, [data])
 
   return (
-    <section className="rounded-xl border border-border bg-surface-2/60 p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <Zap className="w-4 h-4 text-brand-600" strokeWidth={2} />
-        <h2 className="text-sm font-semibold text-text-primary tracking-tight">
-          Insights de hoy
-        </h2>
+    <section className="space-y-4">
+      <div className="flex items-center gap-2">
+        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-mint/10">
+          <Zap className="h-3.5 w-3.5 text-mint" strokeWidth={2} />
+        </div>
+        <h3 className="text-lg font-semibold text-text-primary">Insights de hoy</h3>
       </div>
 
-      {loading && <InsightsSkeleton />}
+      {loading && (
+        <div className="rounded-xl border border-border bg-card p-4">
+          <InsightsSkeleton />
+        </div>
+      )}
 
       {!loading && error && (
-        <p className="text-sm text-text-secondary">{error}</p>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-sm text-text-secondary">{error}</p>
+        </div>
       )}
 
       {!loading && !error && data && !data.hasData && (
-        <div className="flex items-center justify-between gap-4">
+        <div className="rounded-xl border border-border bg-card p-4 flex items-center justify-between gap-4">
           <p className="text-sm text-text-secondary">
             Importa tus primeros datos para ver insights personalizados.
           </p>
           <Link
             href="/dashboard/importar"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 hover:text-brand-800 transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-mint hover:text-mint-dark transition-colors whitespace-nowrap"
           >
             <Upload className="w-3.5 h-3.5" />
             Importar
@@ -98,24 +119,26 @@ export default function DailyInsights({ initial }: Props) {
       )}
 
       {!loading && !error && data && data.hasData && data.insights.length === 0 && (
-        <p className="text-sm text-text-secondary">
-          Sin novedades relevantes hoy. Vuelve mañana.
-        </p>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-sm text-text-secondary">
+            Sin novedades relevantes hoy. Vuelve mañana.
+          </p>
+        </div>
       )}
 
       {!loading && !error && data && data.insights.length > 0 && (
-        <ul className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {data.insights.map((insight, i) => (
-            <InsightRow key={i} insight={insight} index={i} />
+            <InsightCard key={i} insight={insight} index={i} />
           ))}
-        </ul>
+        </div>
       )}
     </section>
   )
 }
 
-function InsightRow({ insight, index }: { insight: Insight; index: number }) {
-  const { Icon, color } = SEVERITY[insight.severity]
+function InsightCard({ insight, index }: { insight: Insight; index: number }) {
+  const { Icon, color, bar, title } = SEVERITY[insight.severity]
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -124,8 +147,8 @@ function InsightRow({ insight, index }: { insight: Insight; index: number }) {
   }, [index])
 
   return (
-    <li
-      className="flex items-start gap-3"
+    <div
+      className="group relative overflow-hidden rounded-xl border border-border bg-card p-4 transition-all duration-300 hover:border-mint/20"
       style={{
         opacity: visible ? 1 : 0,
         transform: visible ? 'translateY(0)' : 'translateY(6px)',
@@ -134,14 +157,19 @@ function InsightRow({ insight, index }: { insight: Insight; index: number }) {
           'opacity 500ms cubic-bezier(0.22,1,0.36,1), transform 500ms cubic-bezier(0.22,1,0.36,1), filter 500ms cubic-bezier(0.22,1,0.36,1)',
       }}
     >
-      <Icon
-        className={cn('w-4 h-4 mt-0.5 shrink-0', color)}
-        strokeWidth={2}
-      />
-      <p className="text-sm text-text-primary leading-relaxed flex-1">
-        {insight.message}
-      </p>
-    </li>
+      {/* Colored left border per severity */}
+      <div className={cn('absolute left-0 top-0 h-full w-1 rounded-l-xl', bar)} />
+
+      <div className="pl-3">
+        <div className="flex items-center gap-2">
+          <Icon className={cn('w-3.5 h-3.5 shrink-0', color)} strokeWidth={2.5} />
+          <h4 className="text-sm font-semibold text-text-primary">{title}</h4>
+        </div>
+        <p className="mt-1.5 text-sm leading-relaxed text-text-secondary">
+          {insight.message}
+        </p>
+      </div>
+    </div>
   )
 }
 

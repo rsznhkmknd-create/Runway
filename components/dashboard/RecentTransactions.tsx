@@ -1,6 +1,5 @@
 import Link from 'next/link'
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 
 export interface RecentTransaction {
   id: string
@@ -16,64 +15,125 @@ interface Props {
   currency: string
 }
 
+/**
+ * Stable colour assignment for arbitrary user-defined categories.
+ * Hash the string and pick from a small palette so the same category
+ * gets the same pill colour across renders.
+ */
+const CATEGORY_PALETTE = [
+  'bg-mint/10 text-mint',
+  'bg-amber/10 text-amber',
+  'bg-blue-500/10 text-blue-500',
+  'bg-purple-500/10 text-purple-500',
+  'bg-pink-500/10 text-pink-500',
+  'bg-cyan-500/10 text-cyan-500',
+] as const
+
+function colorForCategory(category: string): string {
+  let hash = 0
+  for (let i = 0; i < category.length; i++) {
+    hash = (hash << 5) - hash + category.charCodeAt(i)
+    hash |= 0
+  }
+  return CATEGORY_PALETTE[Math.abs(hash) % CATEGORY_PALETTE.length]!
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const today = new Date()
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (d.toDateString() === today.toDateString()) return 'Hoy'
+  if (d.toDateString() === yesterday.toDateString()) return 'Ayer'
+  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+}
+
 export default function RecentTransactions({ transactions, currency }: Props) {
   return (
-    <div className="bg-surface rounded-2xl border border-border p-6 shadow-sm h-full">
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h2 className="font-semibold text-text-primary">Movimientos</h2>
-          <p className="text-xs text-text-muted mt-0.5">Últimas transacciones</p>
+    <div className="rounded-xl border border-border bg-card">
+      <div className="border-b border-border p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold text-text-primary">Movimientos</h3>
+            <p className="text-sm text-text-muted">Tu última actividad financiera</p>
+          </div>
         </div>
-        <Link
-          href="/dashboard/movimientos"
-          className="text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors"
-        >
-          Ver todos →
-        </Link>
       </div>
 
       {transactions.length === 0 ? (
-        <div className="h-[160px] flex items-center justify-center text-sm text-text-muted">
+        <div className="h-32 flex items-center justify-center text-sm text-text-muted">
           Sin movimientos aún
         </div>
       ) : (
-        <div className="space-y-3">
-          {transactions.map((tx) => (
-            <div key={tx.id} className="flex items-center gap-3">
-              <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                  tx.type === 'income' ? 'bg-brand-50' : 'bg-red-50'
-                }`}
-              >
-                {tx.type === 'income' ? (
-                  <ArrowUpRight className="w-4 h-4 text-brand-600" />
-                ) : (
-                  <ArrowDownRight className="w-4 h-4 text-red-500" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-text-primary truncate">
-                  {tx.description ?? tx.category}
-                </p>
-                <p className="text-xs text-text-muted">
-                  {tx.category} ·{' '}
-                  {new Date(tx.date).toLocaleDateString('es-ES', {
-                    day: 'numeric',
-                    month: 'short',
-                  })}
-                </p>
-              </div>
-              <span
-                className={`text-sm font-semibold shrink-0 ${
-                  tx.type === 'income' ? 'text-brand-700' : 'text-text-secondary'
-                }`}
-              >
-                {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount, currency)}
-              </span>
-            </div>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">
+                  Descripción
+                </th>
+                <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">
+                  Categoría
+                </th>
+                <th className="px-5 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted">
+                  Importe
+                </th>
+                <th className="px-5 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted">
+                  Fecha
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {transactions.map((tx) => (
+                <tr
+                  key={tx.id}
+                  className="transition-colors hover:bg-muted/30"
+                >
+                  <td className="whitespace-nowrap px-5 py-4">
+                    <span className="text-sm font-medium text-text-primary">
+                      {tx.description ?? tx.category}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-4">
+                    <span
+                      className={cn(
+                        'inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium',
+                        colorForCategory(tx.category)
+                      )}
+                    >
+                      {tx.category}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-4 text-right">
+                    <span
+                      className={cn(
+                        'tabular-nums text-sm font-semibold',
+                        tx.type === 'income' ? 'text-income' : 'text-expense'
+                      )}
+                    >
+                      {tx.type === 'income' ? '+' : '-'}
+                      {formatCurrency(tx.amount, currency)}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-4 text-right">
+                    <span className="text-sm text-text-muted">{formatDate(tx.date)}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+
+      <div className="border-t border-border p-4">
+        <Link
+          href="/dashboard/movimientos"
+          className="block w-full text-center text-sm font-medium text-mint transition-colors hover:text-mint-dark"
+        >
+          Ver todos los movimientos
+        </Link>
+      </div>
     </div>
   )
 }

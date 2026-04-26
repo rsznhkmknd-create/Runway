@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createServiceClient } from '@/lib/supabase/server'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
+import ChatBot from '@/components/chat/ChatBot'
 import { AlertsProvider } from '@/components/alerts/AlertsProvider'
 import { computeAlerts } from '@/lib/alerts/compute'
 import type { Alert } from '@/lib/alerts/types'
@@ -62,6 +63,8 @@ export default async function DashboardLayout({
           <main className="flex-1 p-6 lg:p-8">{children}</main>
         </div>
       </div>
+      {/* Finsight AI — floating chat assistant on every dashboard page. */}
+      <ChatBot />
     </AlertsProvider>
   )
 }

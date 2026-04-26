@@ -40,6 +40,22 @@ const config: Config = {
         },
         accent: '#00C48C',
         steel: '#4a5568',
+
+        // ── v0 design tokens (Apr 26 2026 redesign) ──
+        // Driven by CSS vars so they swap with the dark/light theme.
+        mint:        'rgb(var(--mint) / <alpha-value>)',
+        'mint-dark': 'rgb(var(--mint-dark) / <alpha-value>)',
+        amber:       'rgb(var(--amber) / <alpha-value>)',
+        income:      'rgb(var(--income) / <alpha-value>)',
+        expense:     'rgb(var(--expense) / <alpha-value>)',
+        // Aliases that mirror v0's shadcn-style names (`bg-card`, `text-muted-foreground`)
+        // so we can paste v0 utilities verbatim into the existing components.
+        card:                'rgb(var(--surface) / <alpha-value>)',
+        'card-foreground':   'rgb(var(--text-primary) / <alpha-value>)',
+        background:          'rgb(var(--app-bg) / <alpha-value>)',
+        foreground:          'rgb(var(--text-primary) / <alpha-value>)',
+        muted:               'rgb(var(--surface-2) / <alpha-value>)',
+        'muted-foreground':  'rgb(var(--text-muted) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['DM Sans', 'system-ui', 'sans-serif'],

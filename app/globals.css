@@ -11,37 +11,48 @@
    ══════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Light theme */
-  --app-bg:         249 250 251;   /* #f9fafb */
+  /* Light theme — premium fintech palette (v0 design language) */
+  --app-bg:         245 247 249;   /* #F5F7F9 — soft slate background */
   --surface:        255 255 255;   /* #ffffff — card bg */
-  --surface-2:      243 244 246;   /* #f3f4f6 — nested / hover */
-  --border-color:   229 231 235;   /* #e5e7eb */
+  --surface-2:      240 240 240;   /* #F0F0F0 — muted / nested / hover */
+  --border-color:    14  19  27;   /* opaque rgb for /6 alpha — equiv rgba(0,0,0,.06) */
   --text-primary:    17  24  39;   /* #111827 */
   --text-secondary:  75  85  99;   /* #4b5563 */
-  --text-muted:     156 163 175;   /* #9ca3af */
-  --brand:            0 196 140;   /* #00C48C */
+  --text-muted:     107 114 128;   /* #6B7280 */
+  --brand:            0 196 140;   /* #00C48C — mint */
   --brand-soft:     230 250 243;
-  --danger:         239  68  68;
-  --warning:        245 158  11;
+  --danger:         239  68  68;   /* #EF4444 */
+  --warning:        245 158  11;   /* #F59E0B — amber */
   --chart-grid:     229 231 235;
   --chart-axis:     156 163 175;
+  /* v0 semantic aliases */
+  --mint:             0 196 140;
+  --mint-dark:        0 166 126;   /* #00A67E */
+  --amber:          245 158  11;
+  --income:           0 196 140;
+  --expense:        239  68  68;
 }
 
 .dark {
-  /* Dark theme — near-black navy base, per Finsight design */
-  --app-bg:          10  14  26;   /* #0a0e1a */
-  --surface:         17  24  39;   /* #111827 — card bg */
-  --surface-2:       26  34  54;   /* #1a2236 — nested / hover */
-  --border-color:    31  41  55;   /* #1f2937 */
-  --text-primary:   249 250 251;
-  --text-secondary: 156 163 175;
-  --text-muted:     107 114 128;
+  /* Dark theme — developer-tool feel (v0 design language) */
+  --app-bg:          17  24  39;   /* #111827 */
+  --surface:         15  29  45;   /* #0F1D2D — card bg */
+  --surface-2:       31  41  55;   /* #1F2937 — muted / nested / hover */
+  --border-color:   255 255 255;   /* opaque rgb for /6 alpha — equiv rgba(255,255,255,.06) */
+  --text-primary:   255 255 255;
+  --text-secondary: 209 213 219;
+  --text-muted:     156 163 175;   /* #9CA3AF */
   --brand:            0 196 140;
   --brand-soft:      18  40  32;
-  --danger:         248 113 113;
-  --warning:        251 191  36;
+  --danger:         239  68  68;
+  --warning:        245 158  11;
   --chart-grid:      31  41  55;
   --chart-axis:     107 114 128;
+  --mint:             0 196 140;
+  --mint-dark:        0 166 126;
+  --amber:          245 158  11;
+  --income:           0 196 140;
+  --expense:        239  68  68;
 }
 
 @layer base {
@@ -82,6 +93,22 @@
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum';
   }
+}
+
+/* Pulse animation for status dots (v0 design language) */
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
 }
 
 /* ── Print (PDF export for reports) ────────────────────────────── */

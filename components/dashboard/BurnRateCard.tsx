@@ -1,4 +1,4 @@
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { Flame, TrendingUp, TrendingDown } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 
 interface CategoryStat {
@@ -21,43 +21,52 @@ export default function BurnRateCard({
   topCategories = [],
   currency,
 }: Props) {
-  // For burn rate, lower is better — so negative trend is "good".
+  // For burn rate, lower is better — negative trend is "good" (color income).
   const improved = trend <= 0
-  const Arrow = trend > 0 ? ArrowUpRight : ArrowDownRight
+  const Arrow = trend > 0 ? TrendingUp : TrendingDown
 
   return (
-    <div className="bg-surface rounded-xl border border-border p-6">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm font-medium text-text-secondary">Burn rate</p>
+    <div className="group relative overflow-hidden rounded-xl border border-border bg-card p-5 transition-all duration-300 hover:border-mint/20">
+      <div className="absolute left-0 right-0 top-0 h-0.5 bg-mint" />
+
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-text-muted">Burn rate</p>
+          <div className="flex items-baseline gap-1">
+            <span className="tabular-nums text-3xl font-bold tracking-tight text-text-primary">
+              {formatCurrency(monthly, currency)}
+            </span>
+            <span className="text-sm font-medium text-text-muted">/mes</span>
+          </div>
+        </div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-mint/10 transition-transform duration-300 group-hover:scale-105">
+          <Flame className="h-5 w-5 text-mint" />
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
         {trend !== 0 && (
           <span
             className={cn(
-              'inline-flex items-center gap-0.5 text-xs font-semibold',
-              improved ? 'text-brand-600' : 'text-red-500'
+              'flex items-center gap-0.5 text-xs font-medium',
+              improved ? 'text-income' : 'text-expense'
             )}
           >
-            <Arrow className="w-3.5 h-3.5" />
+            <Arrow className="h-3 w-3" />
             {trend > 0 ? '+' : ''}
             {trend}%
           </span>
         )}
-      </div>
-
-      <div className="flex items-baseline gap-1.5">
-        <span className="text-3xl font-bold text-text-primary tracking-tight tabular-nums">
-          {formatCurrency(monthly, currency)}
+        <span className="text-xs text-text-muted">
+          mes anterior{' '}
+          <span className="font-medium text-text-secondary tabular-nums">
+            {formatCurrency(prevMonthly, currency)}
+          </span>
         </span>
-        <span className="text-sm font-medium text-text-muted">/mes</span>
       </div>
-      <p className="text-xs text-text-muted mt-1.5">
-        Mes anterior{' '}
-        <span className="text-text-secondary font-medium tabular-nums">
-          {formatCurrency(prevMonthly, currency)}
-        </span>
-      </p>
 
       {topCategories.length > 0 && (
-        <div className="mt-5 pt-4 border-t border-border space-y-2">
+        <div className="mt-4 pt-3 border-t border-border space-y-1.5">
           {topCategories.slice(0, 2).map((cat) => (
             <div
               key={cat.label}

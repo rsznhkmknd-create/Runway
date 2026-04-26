@@ -1,4 +1,5 @@
-import { formatCurrency } from '@/lib/utils'
+import { FileText } from 'lucide-react'
+import { cn, formatCurrency } from '@/lib/utils'
 
 interface Props {
   total: number
@@ -11,36 +12,40 @@ export default function AccountsReceivableCard({ total, overdue, count, currency
   const overduePercent = total > 0 ? Math.round((overdue / total) * 100) : 0
 
   return (
-    <div className="bg-surface rounded-xl border border-border p-6">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm font-medium text-text-secondary">Por cobrar</p>
-        <span className="text-xs font-medium text-text-muted tabular-nums">
-          {count} {count === 1 ? 'factura' : 'facturas'}
-        </span>
+    <div className="group relative overflow-hidden rounded-xl border border-border bg-card p-5 transition-all duration-300 hover:border-mint/20">
+      <div className="absolute left-0 right-0 top-0 h-0.5 bg-mint" />
+
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-text-muted">Por cobrar</p>
+          <div className="flex items-baseline gap-1">
+            <span className="tabular-nums text-3xl font-bold tracking-tight text-text-primary">
+              {formatCurrency(total, currency)}
+            </span>
+          </div>
+        </div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-mint/10 transition-transform duration-300 group-hover:scale-105">
+          <FileText className="h-5 w-5 text-mint" />
+        </div>
       </div>
 
-      <div className="flex items-baseline gap-1.5">
-        <span className="text-3xl font-bold text-text-primary tracking-tight tabular-nums">
-          {formatCurrency(total, currency)}
+      <div className="mt-3 flex items-center gap-2">
+        <span className="text-xs text-text-muted">
+          {count} {count === 1 ? 'factura pendiente' : 'facturas pendientes'}
         </span>
-      </div>
-      <p className="text-xs text-text-muted mt-1.5">
-        Pendiente de cobro
-      </p>
-
-      {overdue > 0 ? (
-        <div className="mt-5 pt-4 border-t border-border flex items-center justify-between">
-          <span className="text-xs text-text-muted">Vencido</span>
-          <span className="text-xs font-semibold text-red-500 tabular-nums">
-            {formatCurrency(overdue, currency)} · {overduePercent}%
+        {overdue > 0 && (
+          <span
+            className={cn(
+              'flex items-center gap-0.5 text-xs font-medium text-expense'
+            )}
+          >
+            · {formatCurrency(overdue, currency)} vencidas ({overduePercent}%)
           </span>
-        </div>
-      ) : total > 0 ? (
-        <div className="mt-5 pt-4 border-t border-border flex items-center justify-between">
-          <span className="text-xs text-text-muted">Todo al día</span>
-          <span className="text-xs font-semibold text-brand-600">0 vencidas</span>
-        </div>
-      ) : null}
+        )}
+        {overdue === 0 && total > 0 && (
+          <span className="text-xs font-medium text-income">· todo al día</span>
+        )}
+      </div>
     </div>
   )
 }

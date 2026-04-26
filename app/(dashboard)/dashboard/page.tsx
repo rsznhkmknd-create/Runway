@@ -12,7 +12,6 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getCompanyProfile, isProfileComplete } from '@/lib/supabase/company-profile'
 import { safeNumber, isValidDate, todayIso } from '@/lib/safe'
 import DailyInsights from '@/components/dashboard/DailyInsights'
-import { KpiBento } from '@/components/dashboard/kpi-bento'
 import { ChartReveal } from '@/components/dashboard/chart-reveal'
 import type { Insight } from '@/lib/insights/types'
 
@@ -245,41 +244,40 @@ export default async function DashboardPage() {
 
   const firstName = user?.firstName ?? 'equipo'
 
+  // Greeting based on hour of day, then formatted date.
+  const now = new Date()
+  const hours = now.getHours()
+  const greeting =
+    hours < 12 ? 'Buenos días' : hours < 18 ? 'Buenas tardes' : 'Buenas noches'
+  const formattedDate = now.toLocaleDateString('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+
   return (
-    <div className="space-y-8">
-      {/* Page header */}
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-500/20 bg-brand-600/10 px-2.5 py-0.5 text-[10.5px] font-semibold tracking-[0.08em] uppercase text-brand-600">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-brand-600 opacity-75 animate-ping" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand-600" />
-            </span>
-            En vivo
+    <div className="mx-auto max-w-7xl space-y-6">
+      {/* Page header — pulse-dot greeting + date */}
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-pulse-dot rounded-full bg-income opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-income" />
           </span>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary sm:text-3xl">
+            {greeting}, {firstName}
+          </h1>
         </div>
-        <h1 className="text-[26px] sm:text-[30px] font-semibold tracking-[-0.02em] text-text-primary">
-          Buenos días, {firstName}
-        </h1>
-        <p className="text-text-muted mt-1 text-[13.5px]">
-          Aquí tienes el resumen financiero de hoy —{' '}
-          {new Date().toLocaleDateString('es-ES', {
-            weekday: 'long',
-            day:     'numeric',
-            month:   'long',
-            year:    'numeric',
-          })}
-        </p>
+        <p className="text-sm text-text-muted capitalize">{formattedDate}</p>
       </div>
 
       {!profileComplete && <ProfileCompletionBanner />}
 
-      {metrics.hasData && <DailyInsights initial={initialInsights} />}
-
       {!metrics.hasData && (
-        <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/50 px-8 py-12 text-center">
-          <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-brand-100 flex items-center justify-center">
-            <Upload className="w-6 h-6 text-brand-600" />
+        <div className="rounded-2xl border border-dashed border-mint/30 bg-mint/[0.04] px-8 py-12 text-center">
+          <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-mint/10 flex items-center justify-center">
+            <Upload className="w-6 h-6 text-mint" />
           </div>
           <h2 className="text-lg font-bold text-text-primary mb-2">
             Tu runway empieza aquí
@@ -290,8 +288,8 @@ export default async function DashboardPage() {
           </p>
           <Link
             href="/dashboard/importar"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-brand-600 text-white text-sm font-semibold
-                       rounded-xl hover:bg-brand-700 transition-colors shadow-sm shadow-brand-600/20"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-mint text-white text-sm font-semibold
+                       rounded-xl hover:bg-mint-dark transition-colors shadow-sm shadow-mint/20"
           >
             <Upload className="w-4 h-4" />
             Importar mi primer archivo
@@ -302,25 +300,47 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Bento grid de KPIs con animaciones sutiles */}
+      {/* KPI cards — 3-up grid with mint accent */}
       {metrics.hasData && (
-        <KpiBento
-          runway={metrics.runway}
-          burnRate={metrics.burnRate}
-          receivable={metrics.receivable}
-          currency={currency}
-        />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <RunwayCard
+            months={metrics.runway.months}
+            trend={metrics.runway.trend}
+            cashBalance={metrics.runway.cashBalance}
+            currency={currency}
+          />
+          <BurnRateCard
+            monthly={metrics.burnRate.monthly}
+            trend={metrics.burnRate.trend}
+            prevMonthly={metrics.burnRate.prevMonthly}
+            topCategories={topCategories}
+            currency={currency}
+          />
+          <AccountsReceivableCard
+            total={metrics.receivable.total}
+            overdue={metrics.receivable.overdue}
+            count={metrics.receivable.count}
+            currency={currency}
+          />
+        </div>
       )}
 
-      {/* Charts + Table */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <ChartReveal delay={120} className="lg:col-span-2">
+      {/* Cash flow — full width */}
+      {metrics.hasData && (
+        <ChartReveal delay={120}>
           <CashFlowChart data={cashFlowData} currency={currency} />
         </ChartReveal>
+      )}
+
+      {/* AI insights — 3-up grid with colored left border */}
+      {metrics.hasData && <DailyInsights initial={initialInsights} />}
+
+      {/* Recent transactions — full-width table */}
+      {metrics.hasData && (
         <ChartReveal delay={240}>
           <RecentTransactions transactions={recentTxs} currency={currency} />
         </ChartReveal>
-      </div>
+      )}
     </div>
   )
 }

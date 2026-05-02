@@ -23,6 +23,13 @@ export type ActivityEventType =
   | 'account.export'
   | 'account.delete_requested'
 
+export type ConnectionType   = 'sii' | 'fintoc' | 'transbank'
+export type ConnectionStatus = 'active' | 'disconnected' | 'error'
+export type ConnectionMode   = 'sandbox' | 'live'
+export type SyncTrigger      = 'manual' | 'cron' | 'onboarding'
+export type SyncStatus       = 'success' | 'partial' | 'error'
+export type InvoiceKind      = 'issued' | 'received' | 'boleta'
+
 export interface Database {
   public: {
     Tables: {
@@ -116,6 +123,9 @@ export interface Database {
           category: string
           description: string | null
           date: string
+          source: string | null
+          external_id: string | null
+          connection_id: string | null
           created_at: string
         }
         Insert: {
@@ -126,6 +136,9 @@ export interface Database {
           category: string
           description?: string | null
           date: string
+          source?: string | null
+          external_id?: string | null
+          connection_id?: string | null
           created_at?: string
         }
         Update: {
@@ -134,6 +147,9 @@ export interface Database {
           category?: string
           description?: string | null
           date?: string
+          source?: string | null
+          external_id?: string | null
+          connection_id?: string | null
         }
         Relationships: [
           {
@@ -153,6 +169,12 @@ export interface Database {
           currency: string
           due_date: string
           status: 'pending' | 'paid' | 'overdue'
+          source: string | null
+          external_id: string | null
+          connection_id: string | null
+          invoice_kind: InvoiceKind | null
+          paid_at: string | null
+          matched_transaction_id: string | null
           created_at: string
         }
         Insert: {
@@ -163,6 +185,12 @@ export interface Database {
           currency?: string
           due_date: string
           status?: 'pending' | 'paid' | 'overdue'
+          source?: string | null
+          external_id?: string | null
+          connection_id?: string | null
+          invoice_kind?: InvoiceKind | null
+          paid_at?: string | null
+          matched_transaction_id?: string | null
           created_at?: string
         }
         Update: {
@@ -171,6 +199,12 @@ export interface Database {
           currency?: string
           due_date?: string
           status?: 'pending' | 'paid' | 'overdue'
+          source?: string | null
+          external_id?: string | null
+          connection_id?: string | null
+          invoice_kind?: InvoiceKind | null
+          paid_at?: string | null
+          matched_transaction_id?: string | null
         }
         Relationships: [
           {
@@ -375,6 +409,101 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: 'import_metrics_profile_id_fkey'
+            columns: ['profile_id']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      connections: {
+        Row: {
+          id: string
+          profile_id: string
+          type: ConnectionType
+          status: ConnectionStatus
+          mode: ConnectionMode
+          credentials_encrypted: string | null
+          metadata: Json
+          last_sync_at: string | null
+          last_error: string | null
+          records_imported: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          type: ConnectionType
+          status?: ConnectionStatus
+          mode?: ConnectionMode
+          credentials_encrypted?: string | null
+          metadata?: Json
+          last_sync_at?: string | null
+          last_error?: string | null
+          records_imported?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          status?: ConnectionStatus
+          mode?: ConnectionMode
+          credentials_encrypted?: string | null
+          metadata?: Json
+          last_sync_at?: string | null
+          last_error?: string | null
+          records_imported?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'connections_profile_id_fkey'
+            columns: ['profile_id']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      sync_logs: {
+        Row: {
+          id: string
+          connection_id: string
+          profile_id: string
+          synced_at: string
+          records_imported: number
+          reconciled_count: number
+          status: SyncStatus
+          error: string | null
+          duration_ms: number | null
+          trigger: SyncTrigger
+        }
+        Insert: {
+          id?: string
+          connection_id: string
+          profile_id: string
+          synced_at?: string
+          records_imported?: number
+          reconciled_count?: number
+          status: SyncStatus
+          error?: string | null
+          duration_ms?: number | null
+          trigger?: SyncTrigger
+        }
+        Update: {
+          status?: SyncStatus
+          error?: string | null
+          records_imported?: number
+          reconciled_count?: number
+          duration_ms?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sync_logs_connection_id_fkey'
+            columns: ['connection_id']
+            referencedRelation: 'connections'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sync_logs_profile_id_fkey'
             columns: ['profile_id']
             referencedRelation: 'profiles'
             referencedColumns: ['id']

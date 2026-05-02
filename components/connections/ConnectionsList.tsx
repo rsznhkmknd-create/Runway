@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { Json, ConnectionType, ConnectionStatus, ConnectionMode } from '@/lib/supabase/types'
-import type { ConnectionMeta } from '@/lib/connections/registry'
+import type { ConnectionMeta } from '@/lib/connections/meta'
 import ConnectionCard from './ConnectionCard'
 
 export type ConnectionRow = {
